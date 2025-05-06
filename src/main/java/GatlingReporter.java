@@ -103,7 +103,7 @@ public class GatlingReporter {
         File gatlingDir = new File(target.toString());
         File[] files = gatlingDir.listFiles(File::isDirectory);
 
-        Arrays.sort(²files, Comparator.comparingLong(File::lastModified).reversed());
+        Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
 
         return files[0];
     }
