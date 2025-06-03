@@ -1,3 +1,4 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -27,7 +28,8 @@ public class GatlingReporter {
             Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember("contents").getMember(contentKey));
             requestsData.put(contentKey,contentKeyAttributes);
         }
-        System.out.println(data);
+        ObjectMapper objectMapper = new ObjectMapper();
+        System.out.println(objectMapper.writeValueAsString(data));
     }
 
     private  Map<String,Object> getAttributes(Value root) {
@@ -93,10 +95,10 @@ public class GatlingReporter {
         File lastGatlingDirectory = getLastGatlingDirectory();
         String jsContent = new String(Files.readAllBytes(Paths.get(lastGatlingDirectory.toString() + "/js/stats.js")));
         Value contextBindings;
-        try (Context context = Context.newBuilder("js").build()) {
+        Value stats = null;
+        Context context = Context.newBuilder("js").build();
             context.eval("js", jsContent);
             contextBindings = context.getBindings("js");
-        }
         return contextBindings.getMember("stats");
     }
 
@@ -122,9 +124,9 @@ public class GatlingReporter {
 
     private Map<String,String> getStats(Value value){
         Map<String,String> statuses = Maps.newHashMap();
-        statuses.put("total", replaceDashByNull(value.getMember("total").asString()));
-        statuses.put("ok", replaceDashByNull(value.getMember("ok").asString()));
-        statuses.put("ko", replaceDashByNull(value.getMember("ko").asString()));
+        statuses.put("total", replaceDashByZero(value.getMember("total").asString()));
+        statuses.put("ok", replaceDashByZero(value.getMember("ok").asString()));
+        statuses.put("ko", replaceDashByZero(value.getMember("ko").asString()));
         return statuses;
     }
 
@@ -146,9 +148,9 @@ public class GatlingReporter {
         return map;
     }
 
-    private String replaceDashByNull(String value){
+    private String replaceDashByZero(String value){
         if("-".equals(value)){
-            return null;
+            return "0";
         }
         return value;
     }
