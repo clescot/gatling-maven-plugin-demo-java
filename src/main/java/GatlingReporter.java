@@ -28,7 +28,8 @@ public class GatlingReporter {
     public static void main(String[] args) throws IOException {
         GatlingReporter gatlingReporter = new GatlingReporter();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
-        System.out.println(gatlingReporter.getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory));
+        String gatlingExecutionDataAsJson = gatlingReporter.getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory);
+        System.out.println(gatlingExecutionDataAsJson);
     }
 
     private String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
