@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class GatlingReporter {
 
@@ -60,27 +61,17 @@ public class GatlingReporter {
         rootAttributes.put("stats",statsAttributes);
 
         Value stats = root.getMember("stats");
+        List<String> memberKeys = stats.getMemberKeys().stream()
+                .filter(key -> !key.startsWith("group"))
+                .filter(key -> !key.equals("name"))
+                .collect(Collectors.toUnmodifiableList());
         Map<String,Map<String,String>> statsValues = getStats(
                 stats,
-                "numberOfRequests",
-                "minResponseTime",
-                "maxResponseTime",
-                "meanResponseTime",
-                "standardDeviation",
-                "percentiles1",
-                "percentiles2",
-                "percentiles3",
-                "percentiles4",
-                "meanNumberOfRequestsPerSecond"
+                memberKeys
         );
 
         statsAttributes.putAll(statsValues);
-        Map<String, Map<String, String>> groupAttributes = parseGroups(
-                stats,
-                "group1",
-                "group2",
-                "group3",
-                "group4");
+        Map<String, Map<String, String>> groupAttributes = parseGroups(stats);
 
         //col-2 => total
         //col-3 => nombre de OK
@@ -120,7 +111,7 @@ public class GatlingReporter {
         return files[0];
     }
 
-    private Map<String,Map<String,String>> getStats(Value parent, String... keys){
+    private Map<String,Map<String,String>> getStats(Value parent, List<String> keys){
         Map<String,Map<String,String>> statusesWithKeys = Maps.newHashMap();
         for (String key : keys) {
             Value member = parent.getMember(key);
@@ -146,9 +137,9 @@ public class GatlingReporter {
         return map;
     }
 
-    private Map<String,Map<String,String>> parseGroups(Value parent,String... groupIds){
+    private Map<String,Map<String,String>> parseGroups(Value parent){
         Map<String,Map<String,String>> map = Maps.newHashMap();
-        List<String> list = Lists.newArrayList(groupIds);
+        List<String> list = parent.getMemberKeys().stream().filter(name->name.startsWith("group")).collect(Collectors.toUnmodifiableList());
         for (String groupId : list) {
             map.put(groupId,parseGroup(parent.getMember(groupId)));
         }
