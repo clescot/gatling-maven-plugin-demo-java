@@ -1,6 +1,5 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
@@ -11,13 +10,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class GatlingReporter {
 
     public static final String LANGUAGE_ID = "js";
     public static final String STATS_JS_PATH = "/js/stats.js";
     final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    public static final String CONTENTS = "contents";
+    public static final String OK = "ok";
+    public static final String KO = "ko";
+    public static final String TOTAL = "total";
+    public static final String NAME = "name";
+    public static final String HTML_NAME = "htmlName";
+    public static final String COUNT = "count";
+    public static final String PERCENTAGE = "percentage";
+
     public static void main(String[] args) throws IOException {
         GatlingReporter gatlingReporter = new GatlingReporter();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
@@ -30,12 +37,12 @@ public class GatlingReporter {
         Map<String, Object> rootAttributes = gatlingReporter.getAttributes(root);
         data.put("root",rootAttributes);
 
-        Value requests = root.getMember("contents");
+        Value requests = root.getMember(CONTENTS);
         Set<String> contentMemberKeys = requests.getMemberKeys();
         Map<String, Object> requestsData = Maps.newHashMap();
-        rootAttributes.put("contents",requestsData);
+        rootAttributes.put(CONTENTS,requestsData);
         for (String contentKey : contentMemberKeys) {
-            Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember("contents").getMember(contentKey));
+            Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember(CONTENTS).getMember(contentKey));
             requestsData.put(contentKey,contentKeyAttributes);
         }
 
@@ -48,8 +55,8 @@ public class GatlingReporter {
         String type = root.getMember("type").asString();
         rootAttributes.put("type",type);
 
-        String name = root.getMember("name").asString();
-        rootAttributes.put("name",name);
+        String name = root.getMember(NAME).asString();
+        rootAttributes.put(NAME,name);
 
         String path = root.getMember("path").asString();
         rootAttributes.put("path",path);
@@ -63,8 +70,8 @@ public class GatlingReporter {
         Value stats = root.getMember("stats");
         List<String> memberKeys = stats.getMemberKeys().stream()
                 .filter(key -> !key.startsWith("group"))
-                .filter(key -> !key.equals("name"))
-                .collect(Collectors.toUnmodifiableList());
+                .filter(key -> !key.equals(NAME))
+                .toList();
         Map<String,Map<String,String>> statsValues = getStats(
                 stats,
                 memberKeys
@@ -122,24 +129,26 @@ public class GatlingReporter {
 
     private Map<String,String> getStats(Value value){
         Map<String,String> statuses = Maps.newHashMap();
-        statuses.put("total", replaceDashByNull(value.getMember("total").asString()));
-        statuses.put("ok", replaceDashByNull(value.getMember("ok").asString()));
-        statuses.put("ko", replaceDashByNull(value.getMember("ko").asString()));
+        statuses.put(TOTAL, replaceDashByNull(value.getMember(TOTAL).asString()));
+        statuses.put(OK, replaceDashByNull(value.getMember(OK).asString()));
+        statuses.put(KO, replaceDashByNull(value.getMember(KO).asString()));
         return statuses;
     }
 
     private Map<String,String> parseGroup(Value value){
         Map<String,String> map = Maps.newHashMap();
-        map.put("name",(value.getMember("name").asString()));
-        map.put("htmlName",(value.getMember("htmlName").asString()));
-        map.put("count",(value.getMember("count").asInt()+""));
-        map.put("percentage",(value.getMember("percentage").asInt()+""));
+        map.put(NAME,(value.getMember(NAME).asString()));
+        map.put(HTML_NAME,(value.getMember(HTML_NAME).asString()));
+        map.put(COUNT,(value.getMember(COUNT).asInt()+""));
+        map.put(PERCENTAGE,(value.getMember(PERCENTAGE).asInt()+""));
         return map;
     }
 
     private Map<String,Map<String,String>> parseGroups(Value parent){
         Map<String,Map<String,String>> map = Maps.newHashMap();
-        List<String> list = parent.getMemberKeys().stream().filter(name->name.startsWith("group")).collect(Collectors.toUnmodifiableList());
+        List<String> list = parent.getMemberKeys().stream()
+                .filter(name->name.startsWith("group"))
+                .toList();
         for (String groupId : list) {
             map.put(groupId,parseGroup(parent.getMember(groupId)));
         }
