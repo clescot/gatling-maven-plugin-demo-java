@@ -1,8 +1,12 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import io.gatling.charts.stats.LogFileData;
+import io.gatling.charts.stats.LogFileReader;
+import io.gatling.core.config.GatlingConfiguration;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
+import scala.Tuple2;
 
 import java.io.File;
 import java.io.IOException;
