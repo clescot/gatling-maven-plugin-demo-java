@@ -1,9 +1,9 @@
 version: '3.2'
 services:
-#  prom-pushgateway:
-#    image: prom/pushgateway
-#    ports:
-#      - 9091:9091
+  prom-pushgateway:
+    image: prom/pushgateway
+    ports:
+      - 9091:9091
   prometheus:
     image: prom/prometheus:v3.4.1
     volumes:
