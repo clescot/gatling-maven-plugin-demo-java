@@ -1,3 +1,4 @@
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.graalvm.polyglot.Context;
@@ -102,7 +103,7 @@ public class GatlingReporter {
         Path target = absolutePath.resolve("target/gatling");
         File gatlingDir = new File(target.toString());
         File[] files = gatlingDir.listFiles(File::isDirectory);
-
+        Preconditions.checkNotNull(files,"no gatling directory found");
         Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
 
         return files[0];
