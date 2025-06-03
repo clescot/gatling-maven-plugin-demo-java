@@ -23,7 +23,7 @@ public class GatlingReporter {
         Value requests = root.getMember("contents");
         Set<String> contentMemberKeys = requests.getMemberKeys();
         Map<String, Object> requestsData = Maps.newHashMap();
-        data.put("contents",requestsData);
+        rootAttributes.put("contents",requestsData);
         for (String contentKey : contentMemberKeys) {
             Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember("contents").getMember(contentKey));
             requestsData.put(contentKey,contentKeyAttributes);
@@ -95,7 +95,6 @@ public class GatlingReporter {
         File lastGatlingDirectory = getLastGatlingDirectory();
         String jsContent = new String(Files.readAllBytes(Paths.get(lastGatlingDirectory.toString() + "/js/stats.js")));
         Value contextBindings;
-        Value stats = null;
         Context context = Context.newBuilder("js").build();
             context.eval("js", jsContent);
             contextBindings = context.getBindings("js");
@@ -124,9 +123,9 @@ public class GatlingReporter {
 
     private Map<String,String> getStats(Value value){
         Map<String,String> statuses = Maps.newHashMap();
-        statuses.put("total", replaceDashByZero(value.getMember("total").asString()));
-        statuses.put("ok", replaceDashByZero(value.getMember("ok").asString()));
-        statuses.put("ko", replaceDashByZero(value.getMember("ko").asString()));
+        statuses.put("total", replaceDashByNull(value.getMember("total").asString()));
+        statuses.put("ok", replaceDashByNull(value.getMember("ok").asString()));
+        statuses.put("ko", replaceDashByNull(value.getMember("ko").asString()));
         return statuses;
     }
 
@@ -148,9 +147,9 @@ public class GatlingReporter {
         return map;
     }
 
-    private String replaceDashByZero(String value){
+    private String replaceDashByNull(String value){
         if("-".equals(value)){
-            return "0";
+            return null;
         }
         return value;
     }
