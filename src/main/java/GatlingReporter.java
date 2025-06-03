@@ -46,7 +46,7 @@ public class GatlingReporter {
             requestsData.put(contentKey,contentKeyAttributes);
         }
 
-        return OBJECT_MAPPER.writeValueAsString(data);
+        return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(data);
     }
 
     private  Map<String,Object> getAttributes(Value root) {
