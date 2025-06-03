@@ -28,10 +28,10 @@ public class GatlingReporter {
     public static void main(String[] args) throws IOException {
         GatlingReporter gatlingReporter = new GatlingReporter();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
-        System.out.println(getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory));
+        System.out.println(gatlingReporter.getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory));
     }
 
-    private static String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
+    private String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
         Value root = gatlingReporter.getStatsVariable(lastGatlingTestExecutionDirectory);
         Map<String, Object> data = Maps.newHashMap();
         Map<String, Object> rootAttributes = gatlingReporter.getAttributes(root);
