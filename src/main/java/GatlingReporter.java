@@ -13,9 +13,18 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class GatlingReporter {
+
+    public static final String LANGUAGE_ID = "js";
+    public static final String STATS_JS_PATH = "/js/stats.js";
+    final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     public static void main(String[] args) throws IOException {
         GatlingReporter gatlingReporter = new GatlingReporter();
-        Value root = gatlingReporter.getStatsVariable();
+        File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
+        System.out.println(getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory));
+    }
+
+    private static String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
+        Value root = gatlingReporter.getStatsVariable(lastGatlingTestExecutionDirectory);
         Map<String, Object> data = Maps.newHashMap();
         Map<String, Object> rootAttributes = gatlingReporter.getAttributes(root);
         data.put("root",rootAttributes);
@@ -28,8 +37,8 @@ public class GatlingReporter {
             Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember("contents").getMember(contentKey));
             requestsData.put(contentKey,contentKeyAttributes);
         }
-        ObjectMapper objectMapper = new ObjectMapper();
-        System.out.println(objectMapper.writeValueAsString(data));
+
+        return OBJECT_MAPPER.writeValueAsString(data);
     }
 
     private  Map<String,Object> getAttributes(Value root) {
@@ -91,13 +100,12 @@ public class GatlingReporter {
         return rootAttributes;
     }
 
-    private  Value getStatsVariable() throws IOException {
-        File lastGatlingDirectory = getLastGatlingDirectory();
-        String jsContent = new String(Files.readAllBytes(Paths.get(lastGatlingDirectory.toString() + "/js/stats.js")));
+    private  Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
+        String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
         Value contextBindings;
-        Context context = Context.newBuilder("js").build();
-            context.eval("js", jsContent);
-            contextBindings = context.getBindings("js");
+        Context context = Context.newBuilder(LANGUAGE_ID).build();
+            context.eval(LANGUAGE_ID, jsContent);
+            contextBindings = context.getBindings(LANGUAGE_ID);
         return contextBindings.getMember("stats");
     }
 
