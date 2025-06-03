@@ -92,9 +92,11 @@ public class GatlingReporter {
     private  Value getStatsVariable() throws IOException {
         File lastGatlingDirectory = getLastGatlingDirectory();
         String jsContent = new String(Files.readAllBytes(Paths.get(lastGatlingDirectory.toString() + "/js/stats.js")));
-        Context context = Context.newBuilder("js").build();
-        context.eval("js", jsContent);
-        Value contextBindings = context.getBindings("js");
+        Value contextBindings;
+        try (Context context = Context.newBuilder("js").build()) {
+            context.eval("js", jsContent);
+            contextBindings = context.getBindings("js");
+        }
         return contextBindings.getMember("stats");
     }
 
