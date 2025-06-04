@@ -1,12 +1,11 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
-import io.gatling.charts.stats.LogFileData;
-import io.gatling.charts.stats.LogFileReader;
-import io.gatling.core.config.GatlingConfiguration;
+import io.prometheus.metrics.core.metrics.Gauge;
+import io.prometheus.metrics.exporter.pushgateway.PushGateway;
+import io.prometheus.metrics.model.snapshots.Unit;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
-import scala.Tuple2;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,10 +29,21 @@ public class GatlingReporter {
     public static final String PERCENTAGE = "percentage";
 
     public static void main(String[] args) throws IOException {
+
         GatlingReporter gatlingReporter = new GatlingReporter();
+        PushGateway pushGateway = PushGateway.builder()
+                .address("localhost:9091") // not needed as localhost:9091 is the default
+                .job("gatling")
+                .build();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
         String gatlingExecutionDataAsJson = gatlingReporter.getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory);
         System.out.println(gatlingExecutionDataAsJson);
+        Gauge dataProcessedInBytes = Gauge.builder()
+                .name("data_processed")
+                .help("data processed in the last batch job run")
+                .unit(Unit.BYTES)
+                .register();
+        pushGateway.push();
     }
 
     private String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
