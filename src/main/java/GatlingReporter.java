@@ -43,6 +43,7 @@ public class GatlingReporter {
                 .help("data processed in the last batch job run")
                 .unit(Unit.BYTES)
                 .register();
+        dataProcessedInBytes.set(14d);
         pushGateway.push();
     }
 
