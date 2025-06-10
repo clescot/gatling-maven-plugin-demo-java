@@ -1,8 +1,12 @@
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import io.prometheus.metrics.core.metrics.Gauge;
+import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.exporter.pushgateway.PushGateway;
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import io.prometheus.metrics.model.snapshots.Unit;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
@@ -18,7 +22,7 @@ public class GatlingReporter {
 
     public static final String LANGUAGE_ID = "js";
     public static final String STATS_JS_PATH = "/js/stats.js";
-    final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private JsonMapper jsonMapper;
     public static final String CONTENTS = "contents";
     public static final String OK = "ok";
     public static final String KO = "ko";
@@ -28,74 +32,81 @@ public class GatlingReporter {
     public static final String COUNT = "count";
     public static final String PERCENTAGE = "percentage";
 
+    public GatlingReporter() {
+        this.jsonMapper = JsonMapper.builder().configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .configure(SerializationFeature.INDENT_OUTPUT, true)
+                .build();
+    }
+
     public static void main(String[] args) throws IOException {
 
         GatlingReporter gatlingReporter = new GatlingReporter();
+        PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
         PushGateway pushGateway = PushGateway.builder()
-                .address("localhost:9091") // not needed as localhost:9091 is the default
+                .address("localhost:9091")
+                .registry(prometheusRegistry)// not needed as localhost:9091 is the default
                 .job("gatling")
                 .build();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
-        String gatlingExecutionDataAsJson = gatlingReporter.getGatlingExecutionDataAsJson(gatlingReporter, lastGatlingTestExecutionDirectory);
-        System.out.println(gatlingExecutionDataAsJson);
-        Gauge dataProcessedInBytes = Gauge.builder()
-                .name("data_processed")
-                .help("data processed in the last batch job run")
-                .unit(Unit.BYTES)
-                .register();
-        dataProcessedInBytes.set(14d);
+        List<Counter> counters = gatlingReporter.
+                getGatlingExecutionMetrics(
+                prometheusRegistry,
+                gatlingReporter,
+                lastGatlingTestExecutionDirectory);
+
         pushGateway.push();
     }
 
-    private String getGatlingExecutionDataAsJson(GatlingReporter gatlingReporter, File lastGatlingTestExecutionDirectory) throws IOException {
+    private List<Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
+                                                     GatlingReporter gatlingReporter,
+                                                     File lastGatlingTestExecutionDirectory) throws IOException {
         Value root = gatlingReporter.getStatsVariable(lastGatlingTestExecutionDirectory);
-        Map<String, Object> data = Maps.newHashMap();
-        Map<String, Object> rootAttributes = gatlingReporter.getAttributes(root);
-        data.put("root",rootAttributes);
-
+        List<Counter> counters = Lists.newArrayList();
+        List<Counter> rootCounters = gatlingReporter.getAttributes(prometheusRegistry, root);
+        counters.addAll(rootCounters);
         Value requests = root.getMember(CONTENTS);
         Set<String> contentMemberKeys = requests.getMemberKeys();
-        Map<String, Object> requestsData = Maps.newHashMap();
-        rootAttributes.put(CONTENTS,requestsData);
         for (String contentKey : contentMemberKeys) {
-            Map<String, Object> contentKeyAttributes = gatlingReporter.getAttributes(root.getMember(CONTENTS).getMember(contentKey));
-            requestsData.put(contentKey,contentKeyAttributes);
+            List<Counter> contentCounters = gatlingReporter.getAttributes(prometheusRegistry,
+                    root.getMember(CONTENTS).getMember(contentKey)
+            );
+            counters.addAll(contentCounters);
         }
 
-        return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(data);
+        return counters;
     }
 
-    private  Map<String,Object> getAttributes(Value root) {
-        Map<String,Object> rootAttributes = Maps.newHashMap();
+    private List<Counter> getAttributes(PrometheusRegistry prometheusRegistry, Value root) {
+        Map<String, Object> rootAttributes = Maps.newHashMap();
 
-        String type = root.getMember("type").asString();
-        rootAttributes.put("type",type);
+        //String type = root.getMember("type").asString();
+        //rootAttributes.put("type",type);
 
-        String name = root.getMember(NAME).asString();
-        rootAttributes.put(NAME,name);
+        //String name = root.getMember(NAME).asString();
+        //rootAttributes.put(NAME,name);
 
-        String path = root.getMember("path").asString();
-        rootAttributes.put("path",path);
+//        String path = root.getMember("path").asString();
+//        rootAttributes.put("path",path);
 
-        String pathFormatted = root.getMember("pathFormatted").asString();
-        rootAttributes.put("pathFormatted",pathFormatted);
+//        String pathFormatted = root.getMember("pathFormatted").asString();
+//        rootAttributes.put("pathFormatted",pathFormatted);
 
-        Map<String,Object> statsAttributes = Maps.newHashMap();
-        rootAttributes.put("stats",statsAttributes);
 
         Value stats = root.getMember("stats");
-        List<String> memberKeys = stats.getMemberKeys().stream()
+        Set<String> statsMemberKeys = stats.getMemberKeys();
+        List<String> memberKeys = statsMemberKeys.stream()
                 .filter(key -> !key.startsWith("group"))
                 .filter(key -> !key.equals(NAME))
                 .toList();
-        Map<String,Map<String,String>> statsValues = getStats(
+        String statsName = stats.getMember("name").toString().toLowerCase().replaceAll("\\s", "_");
+        List<Counter> counters = registerStatsCounters(prometheusRegistry, statsName,
                 stats,
                 memberKeys
         );
 
-        statsAttributes.putAll(statsValues);
-        Map<String, Map<String, String>> groupAttributes = parseGroups(stats);
-
+        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats);
+        counters.addAll(groupCounters);
         //col-2 => total
         //col-3 => nombre de OK
         //col-4 => nombre de KO
@@ -110,16 +121,15 @@ public class GatlingReporter {
         //col-13 => mean
         //col-14 => standard deviation
 
-        statsAttributes.putAll(groupAttributes);
-        return rootAttributes;
+        return counters;
     }
 
-    private  Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
+    private Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
         Value contextBindings;
         Context context = Context.newBuilder(LANGUAGE_ID).build();
-            context.eval(LANGUAGE_ID, jsContent);
-            contextBindings = context.getBindings(LANGUAGE_ID);
+        context.eval(LANGUAGE_ID, jsContent);
+        contextBindings = context.getBindings(LANGUAGE_ID);
         return contextBindings.getMember("stats");
     }
 
@@ -128,51 +138,108 @@ public class GatlingReporter {
         Path target = absolutePath.resolve("target/gatling");
         File gatlingDir = new File(target.toString());
         File[] files = gatlingDir.listFiles(File::isDirectory);
-        Preconditions.checkNotNull(files,"no gatling directory found");
+        Preconditions.checkNotNull(files, "no gatling directory found");
         Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
 
         return files[0];
     }
 
-    private Map<String,Map<String,String>> getStats(Value parent, List<String> keys){
-        Map<String,Map<String,String>> statusesWithKeys = Maps.newHashMap();
+    /**
+     * keys
+     * 0 = "numberOfRequests" => Counter
+     * 1 = "minResponseTime" =>
+     * 2 = "maxResponseTime"
+     * 3 = "meanResponseTime"
+     * 4 = "standardDeviation"
+     * 5 = "percentiles1"
+     * 6 = "percentiles2"
+     * 7 = "percentiles3"
+     * 8 = "percentiles4"
+     * 9 = "meanNumberOfRequestsPerSecond"
+     *
+     * @param prometheusRegistry
+     * @param parent
+     * @param keys
+     * @return
+     */
+    private List<Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
+                                                String statsName,
+                                                Value parent,
+                                                List<String> keys) {
+        List<Counter> counters = Lists.newArrayList();
         for (String key : keys) {
             Value member = parent.getMember(key);
-            statusesWithKeys.put(key, getStats(member));
+            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(key.replaceAll("\\s", "_"));
+            String total = replaceDashByNull(member.getMember(TOTAL).asString());
+            Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey + "_total", total);
+            counters.add(counterTotal);
+            String ok = replaceDashByNull(member.getMember(OK).asString());
+            Counter counterOk = buildCounter(prometheusRegistry, snakeCaseKey + "_ok_total", ok);
+            counters.add(counterOk);
+            String ko = replaceDashByNull(member.getMember(KO).asString());
+            Counter counterKo = buildCounter(prometheusRegistry, snakeCaseKey + "_ko_total", ko);
+            counters.add(counterKo);
         }
-        return statusesWithKeys;
+        return counters;
     }
 
-    private Map<String,String> getStats(Value value){
-        Map<String,String> statuses = Maps.newHashMap();
-        statuses.put(TOTAL, replaceDashByNull(value.getMember(TOTAL).asString()));
-        statuses.put(OK, replaceDashByNull(value.getMember(OK).asString()));
-        statuses.put(KO, replaceDashByNull(value.getMember(KO).asString()));
-        return statuses;
+    private Counter buildCounter(PrometheusRegistry prometheusRegistry, String snakeCaseKey, String value) {
+        Counter counter = Counter.builder().name(snakeCaseKey)
+                //.unit(Unit.SECONDS)
+                .register(prometheusRegistry);
+        boolean convertMillisToSecondNeeded = false;
+        if (!snakeCaseKey.contains("per_second")) {
+            convertMillisToSecondNeeded = true;
+        }
+        if (value != null) {
+            if (convertMillisToSecondNeeded) {
+                double amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
+                counter.inc(amountAsDouble);
+            } else {
+                counter.inc(Double.parseDouble(value));
+            }
+        }
+        return counter;
     }
 
-    private Map<String,String> parseGroup(Value value){
-        Map<String,String> map = Maps.newHashMap();
-        map.put(NAME,(value.getMember(NAME).asString()));
-        map.put(HTML_NAME,(value.getMember(HTML_NAME).asString()));
-        map.put(COUNT,(value.getMember(COUNT).asInt()+""));
-        map.put(PERCENTAGE,(value.getMember(PERCENTAGE).asInt()+""));
-        return map;
+    public String convertCamelCaseToSnakeRegex(String input) {
+        return input
+                .replaceAll("([A-Z])(?=[A-Z])", "$1_")
+                .replaceAll("([a-z])([A-Z])", "$1_$2")
+                .toLowerCase();
     }
 
-    private Map<String,Map<String,String>> parseGroups(Value parent){
-        Map<String,Map<String,String>> map = Maps.newHashMap();
+
+    private Counter parseGroup(PrometheusRegistry prometheusRegistry,String parentName, Value value) {
+        String string = parentName+"_"+value.getMember(NAME)
+                .asString()
+                .replaceAll("\\s","_")
+                .replaceAll("<=","lower_or_equal_than")
+                .replaceAll("<","lower_than")
+                .replaceAll(">=","higher_or_equal_than")
+                .replaceAll(">","higher_than")
+                ;
+        Counter counter = Counter.builder()
+                .name(string)
+                .register(prometheusRegistry);
+        counter.inc(Long.parseLong(value.getMember(COUNT).asInt() + ""));
+        return counter;
+    }
+
+    private List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent) {
+        List<Counter> groupCounters = Lists.newArrayList();
         List<String> list = parent.getMemberKeys().stream()
-                .filter(name->name.startsWith("group"))
+                .filter(name -> name.startsWith("group"))
                 .toList();
+        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s","_");
         for (String groupId : list) {
-            map.put(groupId,parseGroup(parent.getMember(groupId)));
+            groupCounters.add(parseGroup(prometheusRegistry, parentName, parent.getMember(groupId)));
         }
-        return map;
+        return groupCounters;
     }
 
-    private String replaceDashByNull(String value){
-        if("-".equals(value)){
+    private String replaceDashByNull(String value) {
+        if ("-".equals(value)) {
             return null;
         }
         return value;
