@@ -1,9 +1,8 @@
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.exporter.pushgateway.PushGateway;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
@@ -13,6 +12,8 @@ import org.graalvm.polyglot.Value;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,7 +23,6 @@ public class GatlingReporter {
 
     public static final String LANGUAGE_ID = "js";
     public static final String STATS_JS_PATH = "/js/stats.js";
-    private JsonMapper jsonMapper;
     public static final String CONTENTS = "contents";
     public static final String OK = "ok";
     public static final String KO = "ko";
@@ -31,31 +31,87 @@ public class GatlingReporter {
     public static final String HTML_NAME = "htmlName";
     public static final String COUNT = "count";
     public static final String PERCENTAGE = "percentage";
-
-    public GatlingReporter() {
-        this.jsonMapper = JsonMapper.builder().configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-                .configure(SerializationFeature.INDENT_OUTPUT, true)
-                .build();
+    private URL gatlingConfigUrl;
+    Map<String, Integer> indicatorsMapper = getDefaultIndicatorsMapper();
+    public GatlingReporter(){}
+    public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
+        this.gatlingConfigUrl = gatlingConfigUrl;
+        String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
+        this.indicatorsMapper = updateIndicatorsMapper(indicatorsMapper,gatlingConf);
     }
 
-    public static void main(String[] args) throws IOException {
 
-        GatlingReporter gatlingReporter = new GatlingReporter();
+    public static void main(String[] args) throws IOException, URISyntaxException {
+
+        URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource("gatling.conf");
+        GatlingReporter gatlingReporter;
+        if(gatlingConfigUrl!=null) {
+            gatlingReporter = new GatlingReporter(gatlingConfigUrl);
+        }else{
+            gatlingReporter = new GatlingReporter();
+        }
         PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
+        String jobName = "gatling";
+        String pushGatewayAddress = "localhost:9091";
         PushGateway pushGateway = PushGateway.builder()
-                .address("localhost:9091")
+                .address(pushGatewayAddress)
                 .registry(prometheusRegistry)// not needed as localhost:9091 is the default
-                .job("gatling")
+                .job(jobName)
                 .build();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
         List<Counter> counters = gatlingReporter.
                 getGatlingExecutionMetrics(
-                prometheusRegistry,
-                gatlingReporter,
-                lastGatlingTestExecutionDirectory);
+                        prometheusRegistry,
+                        gatlingReporter,
+                        lastGatlingTestExecutionDirectory);
+        //counters are already registered into the prometheusRegistry instance
+//        pushGateway.push();
+    }
 
-        pushGateway.push();
+    private Map<String, Integer> getDefaultIndicatorsMapper() {
+        Map<String, Integer> indicatorsMapper = Maps.newHashMap();
+        indicatorsMapper.put("percentile1", 50);
+        indicatorsMapper.put("percentile2", 75);
+        indicatorsMapper.put("percentile3", 95);
+        indicatorsMapper.put("percentile4", 99);
+        indicatorsMapper.put("lowerBound", 800);
+        indicatorsMapper.put("higherBound", 1200);
+        return indicatorsMapper;
+    }
+
+    private Map<String, Integer> updateIndicatorsMapper(Map<String, Integer> defaultIndicatorsMapper, String gatlingConf) {
+        int percentile1 = 50;
+        int percentile2 = 75;
+        int percentile3 = 95;
+        int percentile4 = 99;
+        int lowerBound = 800;
+        int higherBound = 1200;
+        Config indicatorsConfig = ConfigFactory.parseString(gatlingConf).getConfig("gatling.charting.indicators");
+        if (indicatorsConfig.hasPath("percentile1")) {
+            percentile1 = indicatorsConfig.getInt("percentile1");
+        }
+        if (indicatorsConfig.hasPath("percentile2")) {
+            percentile2 = indicatorsConfig.getInt("percentile2");
+        }
+        if (indicatorsConfig.hasPath("percentile3")) {
+            percentile3 = indicatorsConfig.getInt("percentile3");
+        }
+        if (indicatorsConfig.hasPath("percentile4")) {
+            percentile4 = indicatorsConfig.getInt("percentile4");
+        }
+        if (indicatorsConfig.hasPath("lowerBound")) {
+            lowerBound = indicatorsConfig.getInt("lowerBound");
+        }
+        if (indicatorsConfig.hasPath("higherBound")) {
+            higherBound = indicatorsConfig.getInt("higherBound");
+        }
+        defaultIndicatorsMapper.put("percentile1", percentile1);
+        defaultIndicatorsMapper.put("percentile2", percentile2);
+        defaultIndicatorsMapper.put("percentile3", percentile3);
+        defaultIndicatorsMapper.put("percentile4", percentile4);
+        defaultIndicatorsMapper.put("lowerBound", lowerBound);
+        defaultIndicatorsMapper.put("higherBound", higherBound);
+        return defaultIndicatorsMapper;
     }
 
     private List<Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
@@ -105,7 +161,7 @@ public class GatlingReporter {
                 memberKeys
         );
 
-        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats);
+        List<Counter> groupCounters = parseGroups(prometheusRegistry, stats);
         counters.addAll(groupCounters);
         //col-2 => total
         //col-3 => nombre de OK
@@ -163,13 +219,13 @@ public class GatlingReporter {
      * @return
      */
     private List<Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
-                                                String statsName,
+                                                String parentName,
                                                 Value parent,
                                                 List<String> keys) {
         List<Counter> counters = Lists.newArrayList();
         for (String key : keys) {
             Value member = parent.getMember(key);
-            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(key.replaceAll("\\s", "_"));
+            String snakeCaseKey = parentName + "_" + convertCamelCaseToSnakeRegex(key.replaceAll("\\s", "_"));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
             Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey + "_total", total);
             counters.add(counterTotal);
@@ -210,15 +266,14 @@ public class GatlingReporter {
     }
 
 
-    private Counter parseGroup(PrometheusRegistry prometheusRegistry,String parentName, Value value) {
-        String string = parentName+"_"+value.getMember(NAME)
+    private Counter parseGroup(PrometheusRegistry prometheusRegistry, String parentName, Value value) {
+        String string = parentName + "_" + value.getMember(NAME)
                 .asString()
-                .replaceAll("\\s","_")
-                .replaceAll("<=","lower_or_equal_than")
-                .replaceAll("<","lower_than")
-                .replaceAll(">=","higher_or_equal_than")
-                .replaceAll(">","higher_than")
-                ;
+                .replaceAll("\\s", "_")
+                .replaceAll("<=", "lower_or_equal_than")
+                .replaceAll("<", "lower_than")
+                .replaceAll(">=", "higher_or_equal_than")
+                .replaceAll(">", "higher_than");
         Counter counter = Counter.builder()
                 .name(string)
                 .register(prometheusRegistry);
@@ -231,7 +286,7 @@ public class GatlingReporter {
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
                 .toList();
-        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s","_");
+        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s", "_");
         for (String groupId : list) {
             groupCounters.add(parseGroup(prometheusRegistry, parentName, parent.getMember(groupId)));
         }
