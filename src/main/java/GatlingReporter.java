@@ -1,10 +1,12 @@
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.gatling.charts.stats.LogFileReader;
 import io.prometheus.metrics.core.metrics.Counter;
-import io.prometheus.metrics.core.metrics.Summary;
 import io.prometheus.metrics.exporter.pushgateway.PushGateway;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import io.prometheus.metrics.model.snapshots.Unit;
@@ -34,13 +36,14 @@ public class GatlingReporter {
     public static final String COUNT = "count";
     public static final String PERCENTAGE = "percentage";
     private URL gatlingConfigUrl;
-    Map<String, Pair<String,String>> indicatorsMapper = getDefaultIndicatorsMapper();
-    public GatlingReporter(){}
+    private Map<String,String> indicatorsMapper = getDefaultIndicatorsMapper();
+
     public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
         this.gatlingConfigUrl = gatlingConfigUrl;
         String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
-        this.indicatorsMapper = updateIndicatorsMapper(indicatorsMapper,gatlingConf);
     }
+
+    public GatlingReporter() {}
 
 
     public static void main(String[] args) throws IOException, URISyntaxException {
@@ -53,87 +56,42 @@ public class GatlingReporter {
         }
 
         PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
-        String jobName = "gatling";
         String pushGatewayAddress = "localhost:9091";
+        String jobName = "gatling";
         PushGateway pushGateway = PushGateway.builder()
                 .address(pushGatewayAddress)
                 .registry(prometheusRegistry)// not needed as localhost:9091 is the default
                 .job(jobName)
                 .build();
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
-        Map<String, Counter> counters = gatlingReporter.
+        List<Counter> counters = gatlingReporter.
                 getGatlingExecutionMetrics(
-                        prometheusRegistry,
-                        gatlingReporter,
-                        lastGatlingTestExecutionDirectory);
-        //counters are already registered into the prometheusRegistry instance
-//        pushGateway.push();
+                prometheusRegistry,
+                gatlingReporter,
+                lastGatlingTestExecutionDirectory);
+        pushGateway.push();
     }
 
-    private Map<String, Pair<String,String>> getDefaultIndicatorsMapper() {
-        Map<String, Pair<String,String>> indicatorsMapper = Maps.newHashMap();
-        indicatorsMapper.put("percentiles1", Pair.create("percentile","50"));
-        indicatorsMapper.put("percentiles2", Pair.create("percentile","75"));
-        indicatorsMapper.put("percentiles3", Pair.create("percentile","95"));
-        indicatorsMapper.put("percentiles4", Pair.create("percentile","99"));
-        indicatorsMapper.put("lowerBound", Pair.create("lower_bound","800"));
-        indicatorsMapper.put("higherBound", Pair.create("higher_bound","1200"));
-        return indicatorsMapper;
-    }
-
-    private Map<String, Pair<String,String>> updateIndicatorsMapper(Map<String, Pair<String,String>> defaultIndicatorsMapper, String gatlingConf) {
-        String percentile1 = "50";
-        String percentile2 = "75";
-        String percentile3 = "95";
-        String percentile4 = "99";
-        String lowerBound = "800";
-        String higherBound = "1200";
-        Config indicatorsConfig = ConfigFactory.parseString(gatlingConf).getConfig("gatling.charting.indicators");
-        if (indicatorsConfig.hasPath("percentile1")) {
-            percentile1 = ""+indicatorsConfig.getInt("percentile1");
-        }
-        if (indicatorsConfig.hasPath("percentile2")) {
-            percentile2 = ""+indicatorsConfig.getInt("percentile2");
-        }
-        if (indicatorsConfig.hasPath("percentile3")) {
-            percentile3 = ""+indicatorsConfig.getInt("percentile3");
-        }
-        if (indicatorsConfig.hasPath("percentile4")) {
-            percentile4 = ""+indicatorsConfig.getInt("percentile4");
-        }
-        if (indicatorsConfig.hasPath("lowerBound")) {
-            lowerBound = ""+indicatorsConfig.getInt("lowerBound");
-        }
-        if (indicatorsConfig.hasPath("higherBound")) {
-            higherBound = ""+indicatorsConfig.getInt("higherBound");
-        }
-        defaultIndicatorsMapper.put("percentile1", Pair.create("percentile",percentile1));
-        defaultIndicatorsMapper.put("percentile2", Pair.create("percentile",percentile2));
-        defaultIndicatorsMapper.put("percentile3", Pair.create("percentile",percentile3));
-        defaultIndicatorsMapper.put("percentile4", Pair.create("percentile",percentile4));
-        defaultIndicatorsMapper.put("lowerBound", Pair.create("lower_bound",lowerBound));
-        defaultIndicatorsMapper.put("higherBound", Pair.create("higher_bound",higherBound));
-        return defaultIndicatorsMapper;
-    }
-
-    private Map<String, Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
-                                                            GatlingReporter gatlingReporter,
-                                                            File lastGatlingTestExecutionDirectory) throws IOException {
+    private List<Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
+                                                     GatlingReporter gatlingReporter,
+                                                     File lastGatlingTestExecutionDirectory) throws IOException {
         Value root = gatlingReporter.getStatsVariable(lastGatlingTestExecutionDirectory);
-        Map<String, Counter> counters = gatlingReporter.getAttributes(prometheusRegistry, root);
+        List<Counter> counters = Lists.newArrayList();
+        List<Counter> rootCounters = gatlingReporter.getAttributes(prometheusRegistry, root);
+        counters.addAll(rootCounters);
         Value requests = root.getMember(CONTENTS);
         Set<String> contentMemberKeys = requests.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
-            Map<String, Counter> contentCounters = gatlingReporter.getAttributes(prometheusRegistry,
+            List<Counter> contentCounters = gatlingReporter.getAttributes(prometheusRegistry,
                     root.getMember(CONTENTS).getMember(contentKey)
             );
-            counters.putAll(contentCounters);
+            counters.addAll(contentCounters);
         }
 
         return counters;
     }
 
-    private Map<String, Counter> getAttributes(PrometheusRegistry prometheusRegistry, Value root) {
+    private List<Counter> getAttributes(PrometheusRegistry prometheusRegistry, Value root) {
         Map<String, Object> rootAttributes = Maps.newHashMap();
 
         //String type = root.getMember("type").asString();
@@ -156,12 +114,13 @@ public class GatlingReporter {
                 .filter(key -> !key.equals(NAME))
                 .toList();
         String statsName = stats.getMember("name").toString().toLowerCase().replaceAll("\\s", "_");
-        Map<String, Counter> counters = registerStatsCounters(prometheusRegistry, statsName,
+        List<Counter> counters = registerStatsCounters(prometheusRegistry, statsName,
                 stats,
                 memberKeys
         );
 
-        counters = parseGroups(prometheusRegistry, counters, stats);
+        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats);
+        counters.addAll(groupCounters);
         //col-2 => total
         //col-3 => nombre de OK
         //col-4 => nombre de KO
@@ -199,6 +158,19 @@ public class GatlingReporter {
         return files[0];
     }
 
+    private Map<String, String> getDefaultIndicatorsMapper() {
+        Map<String, String> indicatorsMapper = Maps.newHashMap();
+        indicatorsMapper.put("percentiles1", "p50");
+        indicatorsMapper.put("percentiles2", "p75");
+        indicatorsMapper.put("percentiles3", "p95");
+        indicatorsMapper.put("percentiles4", "p99");
+        indicatorsMapper.put("lowerBound", "lower_bound_800");
+        indicatorsMapper.put("higherBound", "higher_bound_1200");
+        return indicatorsMapper;
+    }
+
+
+
     /**
      * keys
      * 0 = "numberOfRequests" => Counter
@@ -217,73 +189,48 @@ public class GatlingReporter {
      * @param keys
      * @return
      */
-    private Map<String, Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
-                                                       String parentName,
-                                                       Value parent,
-                                                       List<String> keys) {
-        Map<String,Counter> counters = Maps.newHashMap();
+    private List<Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
+                                                String statsName,
+                                                Value parent,
+                                                List<String> keys) {
+        List<Counter> counters = Lists.newArrayList();
         for (String key : keys) {
             Value member = parent.getMember(key);
-            String labelKey = null;
-            String labelValue = null;
-            String snakeCaseKey = parentName;
-            if(this.indicatorsMapper.containsKey(key)){
-                labelKey= indicatorsMapper.get(key).getLeft();
-                labelValue= indicatorsMapper.get(key).getRight();
-            }else{
-                snakeCaseKey = snakeCaseKey + "_" + convertCamelCaseToSnakeRegex(key.replaceAll("\\s", "_"));
+            String myKey = key;
+            if(indicatorsMapper.containsKey(key)){
+                myKey = indicatorsMapper.get(key);
             }
+
+            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(myKey.replaceAll("\\s", "_"));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
-            Pair<String, String> pair = labelKey!=null?Pair.create(labelKey, labelValue):null;
-            String totalCounterName = snakeCaseKey + "_total";
-            Counter counterTotal = buildCounter(prometheusRegistry, totalCounterName, total, pair);
-            counters.put(totalCounterName,counterTotal);
+            Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey + "_total", total);
+            counters.add(counterTotal);
             String ok = replaceDashByNull(member.getMember(OK).asString());
-            String okCounterName = snakeCaseKey + "_ok_total";
-            Counter counterOk = buildCounter(prometheusRegistry, okCounterName, ok,pair);
-            counters.put(okCounterName,counterOk);
+            Counter counterOk = buildCounter(prometheusRegistry, snakeCaseKey + "_ok_total", ok);
+            counters.add(counterOk);
             String ko = replaceDashByNull(member.getMember(KO).asString());
-            String koCounterName = snakeCaseKey + "_ko_total";
-            Counter counterKo = buildCounter(prometheusRegistry, koCounterName, ko,pair);
-            counters.put(koCounterName,counterKo);
+            Counter counterKo = buildCounter(prometheusRegistry, snakeCaseKey + "_ko_total", ko);
+            counters.add(counterKo);
         }
         return counters;
     }
 
-    private Counter buildCounter(PrometheusRegistry prometheusRegistry,  String snakeCaseKey, String value, Pair<String,String>... pairs) {
-        Counter.Builder builder = Counter.builder().name(snakeCaseKey);
-        Pair<String, String> firstPair = null;
-        if(pairs != null && pairs.length > 0 && pairs[0]!=null) {
-            firstPair = pairs[0];
-            if (firstPair.getLeft() != null) {
-                builder = builder.labelNames(firstPair.getLeft());
-            }
-        }
-        Counter counter = builder
+    private Counter buildCounter(PrometheusRegistry prometheusRegistry, String snakeCaseKey, String value) {
+        Counter counter = Counter.builder().name(snakeCaseKey)
                 //.unit(Unit.SECONDS)
                 .register(prometheusRegistry);
-
         boolean convertMillisToSecondNeeded = false;
         if (!snakeCaseKey.contains("per_second")) {
             convertMillisToSecondNeeded = true;
         }
         if (value != null) {
-            double amountAsDouble;
             if (convertMillisToSecondNeeded) {
-                amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
-            } else {
-                amountAsDouble = Double.parseDouble(value);
-            }
-            if(pairs != null && pairs.length > 0 && pairs[0]!=null) {
-                counter.labelValues(firstPair.getRight()).inc(amountAsDouble);
-            } else {
+                double amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
                 counter.inc(amountAsDouble);
+            } else {
+                counter.inc(Double.parseDouble(value));
             }
         }
-
-
-
-
         return counter;
     }
 
@@ -295,35 +242,32 @@ public class GatlingReporter {
     }
 
 
-    private Counter parseGroup(PrometheusRegistry prometheusRegistry, String counterName, Value value) {
-
+    private Counter parseGroup(PrometheusRegistry prometheusRegistry,String parentName, Value value) {
+        String string = parentName+"_"+value.getMember(NAME)
+                .asString()
+                .replaceAll("\\s","_")
+                .replaceAll("<=","lower_or_equal_than")
+                .replaceAll("<","lower_than")
+                .replaceAll(">=","higher_or_equal_than")
+                .replaceAll(">","higher_than")
+                ;
         Counter counter = Counter.builder()
-                .name(counterName)
+                .name(string)
                 .register(prometheusRegistry);
         counter.inc(Long.parseLong(value.getMember(COUNT).asInt() + ""));
         return counter;
     }
 
-    private Map<String,Counter> parseGroups(PrometheusRegistry prometheusRegistry,Map<String,Counter> counters, Value parent) {
-
+    private List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent) {
+        List<Counter> groupCounters = Lists.newArrayList();
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
                 .toList();
-        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s", "_");
+        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s","_");
         for (String groupId : list) {
-            Value value = parent.getMember(groupId);
-            String counterName = parentName + "_" + value.getMember(NAME)
-                    .asString()
-                    .replaceAll("\\s", "_")
-                    .replaceAll("<=", "lower_or_equal_than")
-                    .replaceAll("<", "lower_than")
-                    .replaceAll(">=", "higher_or_equal_than")
-                    .replaceAll(">", "higher_than");
-            if(!counters.containsKey(counterName)) {
-                counters.put(counterName, parseGroup(prometheusRegistry, counterName, value));
-            }
+            groupCounters.add(parseGroup(prometheusRegistry, parentName, parent.getMember(groupId)));
         }
-        return counters;
+        return groupCounters;
     }
 
     private String replaceDashByNull(String value) {
