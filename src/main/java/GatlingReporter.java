@@ -38,13 +38,6 @@ public class GatlingReporter {
     private URL gatlingConfigUrl;
     private Map<String,String> indicatorsMapper = getDefaultIndicatorsMapper();
 
-    public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
-        this.gatlingConfigUrl = gatlingConfigUrl;
-        String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
-    }
-
-    public GatlingReporter() {}
-
 
     public static void main(String[] args) throws IOException, URISyntaxException {
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource("gatling.conf");
@@ -66,11 +59,19 @@ public class GatlingReporter {
         File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
         List<Counter> counters = gatlingReporter.
                 getGatlingExecutionMetrics(
-                prometheusRegistry,
-                gatlingReporter,
-                lastGatlingTestExecutionDirectory);
+                        prometheusRegistry,
+                        gatlingReporter,
+                        lastGatlingTestExecutionDirectory);
         pushGateway.push();
     }
+
+
+    public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
+        this.gatlingConfigUrl = gatlingConfigUrl;
+        String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
+    }
+
+    public GatlingReporter() {}
 
     private List<Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
                                                      GatlingReporter gatlingReporter,
@@ -243,13 +244,15 @@ public class GatlingReporter {
 
 
     private Counter parseGroup(PrometheusRegistry prometheusRegistry,String parentName, Value value) {
-        String string = parentName+"_"+value.getMember(NAME)
+        Value member = value.getMember(NAME);
+        String string = parentName+"_"+ member
                 .asString()
+                .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms")
+                .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms")
+                .replaceAll("< (\\d*) ms","lower_than_$1_ms")
+                .replaceAll(">= (\\d*) ms","higher_or_equal_than_$1_ms")
+                .replaceAll("> (\\d*) ms","higher_than_$1_ms")
                 .replaceAll("\\s","_")
-                .replaceAll("<=","lower_or_equal_than")
-                .replaceAll("<","lower_than")
-                .replaceAll(">=","higher_or_equal_than")
-                .replaceAll(">","higher_than")
                 ;
         Counter counter = Counter.builder()
                 .name(string)
