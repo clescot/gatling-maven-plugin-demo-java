@@ -7,7 +7,6 @@ import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.exporter.pushgateway.PushGateway;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import io.prometheus.metrics.model.snapshots.Unit;
-import org.graalvm.collections.Pair;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
 
