@@ -235,13 +235,13 @@ public class GatlingReporter {
 
             String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(myKey.replaceAll("\\s", "_"));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
-            Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey + "_total", total);
+            Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey , total);
             counters.add(counterTotal);
             String ok = replaceDashByNull(member.getMember(OK).asString());
-            Counter counterOk = buildCounter(prometheusRegistry, snakeCaseKey + "_ok_total", ok);
+            Counter counterOk = buildCounter(prometheusRegistry, snakeCaseKey + "_ok", ok);
             counters.add(counterOk);
             String ko = replaceDashByNull(member.getMember(KO).asString());
-            Counter counterKo = buildCounter(prometheusRegistry, snakeCaseKey + "_ko_total", ko);
+            Counter counterKo = buildCounter(prometheusRegistry, snakeCaseKey + "_ko", ko);
             counters.add(counterKo);
         }
         return counters;
@@ -278,11 +278,11 @@ public class GatlingReporter {
         Value member = value.getMember(NAME);
         String string = parentName+"_"+ member
                 .asString()
-                .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms")
-                .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms")
-                .replaceAll("< (\\d*) ms","lower_than_$1_ms")
-                .replaceAll(">= (\\d*) ms","higher_or_equal_than_$1_ms")
-                .replaceAll("> (\\d*) ms","higher_than_$1_ms")
+                .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms_count")
+                .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms_count")
+                .replaceAll("< (\\d*) ms","lower_than_$1_ms_count")
+                .replaceAll(">= (\\d*) ms","higher_or_equal_than_$1_ms_count")
+                .replaceAll("> (\\d*) ms","higher_than_$1_ms_count")
                 .replaceAll("\\s","_")
                 ;
         Counter counter = Counter.builder()
