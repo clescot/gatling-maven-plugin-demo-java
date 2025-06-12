@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.gatling.demo</groupId>
-  <artifactId>gatling-maven-plugin-demo-java</artifactId>
+  <artifactId>gatling-reporter</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <properties>
@@ -125,8 +125,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven-compiler-plugin.version}</version>
         <configuration>
-          <source>17</source>
-          <target>17</target>
+          <source>${maven.compiler.release}</source>
+          <target>${maven.compiler.release}</target>
         </configuration>
       </plugin>
     </plugins>
