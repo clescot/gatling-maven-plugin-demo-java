@@ -1,6 +1,3 @@
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -36,7 +33,7 @@ public class GatlingReporter {
     public static final String COUNT = "count";
     public static final String PERCENTAGE = "percentage";
     private URL gatlingConfigUrl;
-    private Map<String,String> indicatorsMapper = getDefaultIndicatorsMapper();
+    private Map<String,String> indicatorsMapper = getIndicatorsMapper();
 
 
     public static void main(String[] args) throws IOException, URISyntaxException {
@@ -69,6 +66,7 @@ public class GatlingReporter {
     public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
         this.gatlingConfigUrl = gatlingConfigUrl;
         String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
+        updateIndicatorsMapper(this.indicatorsMapper,gatlingConf);
     }
 
     public GatlingReporter() {}
@@ -159,7 +157,7 @@ public class GatlingReporter {
         return files[0];
     }
 
-    private Map<String, String> getDefaultIndicatorsMapper() {
+    private Map<String, String> getIndicatorsMapper() {
         Map<String, String> indicatorsMapper = Maps.newHashMap();
         indicatorsMapper.put("percentiles1", "p50");
         indicatorsMapper.put("percentiles2", "p75");
@@ -168,6 +166,40 @@ public class GatlingReporter {
         indicatorsMapper.put("lowerBound", "lower_bound_800");
         indicatorsMapper.put("higherBound", "higher_bound_1200");
         return indicatorsMapper;
+    }
+    private Map<String, String> updateIndicatorsMapper(Map<String, String> defaultIndicatorsMapper, String gatlingConf) {
+        String percentile1 = "50";
+        String percentile2 = "75";
+        String percentile3 = "95";
+        String percentile4 = "99";
+        String lowerBound = "800";
+        String higherBound = "1200";
+        Config indicatorsConfig = ConfigFactory.parseString(gatlingConf).getConfig("gatling.charting.indicators");
+        if (indicatorsConfig.hasPath("percentile1")) {
+            percentile1 = ""+indicatorsConfig.getInt("percentile1");
+        }
+        if (indicatorsConfig.hasPath("percentile2")) {
+            percentile2 = ""+indicatorsConfig.getInt("percentile2");
+        }
+        if (indicatorsConfig.hasPath("percentile3")) {
+            percentile3 = ""+indicatorsConfig.getInt("percentile3");
+        }
+        if (indicatorsConfig.hasPath("percentile4")) {
+            percentile4 = ""+indicatorsConfig.getInt("percentile4");
+        }
+        if (indicatorsConfig.hasPath("lowerBound")) {
+            lowerBound = ""+indicatorsConfig.getInt("lowerBound");
+        }
+        if (indicatorsConfig.hasPath("higherBound")) {
+            higherBound = ""+indicatorsConfig.getInt("higherBound");
+        }
+        defaultIndicatorsMapper.put("percentile1", "p"+percentile1);
+        defaultIndicatorsMapper.put("percentile2", "p"+percentile2);
+        defaultIndicatorsMapper.put("percentile3", "p"+percentile3);
+        defaultIndicatorsMapper.put("percentile4", "p"+percentile4);
+        defaultIndicatorsMapper.put("lowerBound", "lower_bound_"+lowerBound);
+        defaultIndicatorsMapper.put("higherBound", "higher_bound_"+higherBound);
+        return defaultIndicatorsMapper;
     }
 
 
