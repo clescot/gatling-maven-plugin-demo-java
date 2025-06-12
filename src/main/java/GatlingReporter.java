@@ -91,19 +91,6 @@ public class GatlingReporter {
     }
 
     private List<Counter> getAttributes(PrometheusRegistry prometheusRegistry, Value root) {
-        Map<String, Object> rootAttributes = Maps.newHashMap();
-
-        //String type = root.getMember("type").asString();
-        //rootAttributes.put("type",type);
-
-        //String name = root.getMember(NAME).asString();
-        //rootAttributes.put(NAME,name);
-
-//        String path = root.getMember("path").asString();
-//        rootAttributes.put("path",path);
-
-//        String pathFormatted = root.getMember("pathFormatted").asString();
-//        rootAttributes.put("pathFormatted",pathFormatted);
 
 
         Value stats = root.getMember("stats");
