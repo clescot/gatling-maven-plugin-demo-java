@@ -36,7 +36,8 @@ public class GatlingReporter {
 
 
     public static void main(String[] args) throws IOException, URISyntaxException {
-        String gatlingConfPath = System.getProperty("gatlingConfPath");
+        Map<String, String> env = System.getenv();
+        String gatlingConfPath = env.get("gatlingConfPath");
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource(Optional.ofNullable(gatlingConfPath).orElse("gatling.conf"));
         GatlingReporter gatlingReporter;
         if(gatlingConfigUrl!=null) {
@@ -46,8 +47,8 @@ public class GatlingReporter {
         }
 
         PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
-        String pushGatewayAddress = Optional.ofNullable(System.getProperty("pushGatewayAddress")).orElse("localhost:9091");
-        String jobName = Optional.ofNullable(System.getProperty("jobName")).orElse("gatling");
+        String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
+        String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
         PushGateway pushGateway = PushGateway.builder()
                 .address(pushGatewayAddress)
                 .registry(prometheusRegistry)// not needed as localhost:9091 is the default
