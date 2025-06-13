@@ -31,7 +31,6 @@ public class GatlingReporter {
     public static final String HTML_NAME = "htmlName";
     public static final String COUNT = "count";
     public static final String PERCENTAGE = "percentage";
-    private URL gatlingConfigUrl;
     private Map<String,String> indicatorsMapper = getIndicatorsMapper();
 
 
@@ -65,7 +64,6 @@ public class GatlingReporter {
 
 
     public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
-        this.gatlingConfigUrl = gatlingConfigUrl;
         String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
         updateIndicatorsMapper(this.indicatorsMapper,gatlingConf);
     }
