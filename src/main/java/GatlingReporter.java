@@ -37,6 +37,9 @@ public class GatlingReporter {
     public static void main(String[] args) throws IOException, URISyntaxException {
         Map<String, String> env = System.getenv();
         String gatlingConfPath = env.get("gatlingConfPath");
+        String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
+        String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
+
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource(Optional.ofNullable(gatlingConfPath).orElse("gatling.conf"));
         GatlingReporter gatlingReporter;
         if(gatlingConfigUrl!=null) {
@@ -45,21 +48,7 @@ public class GatlingReporter {
             gatlingReporter = new GatlingReporter();
         }
 
-        PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
-        String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
-        String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
-        PushGateway pushGateway = PushGateway.builder()
-                .address(pushGatewayAddress)
-                .registry(prometheusRegistry)// not needed as localhost:9091 is the default
-                .job(jobName)
-                .build();
-        File lastGatlingTestExecutionDirectory = gatlingReporter.getLastGatlingDirectory();
-        List<Counter> counters = gatlingReporter.
-                getGatlingExecutionMetrics(
-                        prometheusRegistry,
-                        gatlingReporter,
-                        lastGatlingTestExecutionDirectory);
-        pushGateway.push();
+        gatlingReporter.pushToGateway(pushGatewayAddress,jobName);
     }
 
 
@@ -71,16 +60,15 @@ public class GatlingReporter {
     public GatlingReporter() {}
 
     private List<Counter> getGatlingExecutionMetrics(PrometheusRegistry prometheusRegistry,
-                                                     GatlingReporter gatlingReporter,
                                                      File lastGatlingTestExecutionDirectory) throws IOException {
-        Value root = gatlingReporter.getStatsVariable(lastGatlingTestExecutionDirectory);
+        Value root = getStatsVariable(lastGatlingTestExecutionDirectory);
         List<Counter> counters = Lists.newArrayList();
-        List<Counter> rootCounters = gatlingReporter.getAttributes(prometheusRegistry, root);
+        List<Counter> rootCounters = getAttributes(prometheusRegistry, root);
         counters.addAll(rootCounters);
         Value requests = root.getMember(CONTENTS);
         Set<String> contentMemberKeys = requests.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
-            List<Counter> contentCounters = gatlingReporter.getAttributes(prometheusRegistry,
+            List<Counter> contentCounters = getAttributes(prometheusRegistry,
                     root.getMember(CONTENTS).getMember(contentKey)
             );
             counters.addAll(contentCounters);
@@ -296,5 +284,21 @@ public class GatlingReporter {
             return null;
         }
         return value;
+    }
+
+    private void pushToGateway(String pushGatewayAddress, String jobName) throws IOException {
+        PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
+
+        PushGateway pushGateway = PushGateway.builder()
+                .address(pushGatewayAddress)
+                .registry(prometheusRegistry)// not needed as localhost:9091 is the default
+                .job(jobName)
+                .build();
+        File lastGatlingTestExecutionDirectory = getLastGatlingDirectory();
+        List<Counter> counters =
+                getGatlingExecutionMetrics(
+                        prometheusRegistry,
+                        lastGatlingTestExecutionDirectory);
+        pushGateway.push();
     }
 }
