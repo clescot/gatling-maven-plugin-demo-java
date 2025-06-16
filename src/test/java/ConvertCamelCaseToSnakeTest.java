@@ -3,27 +3,29 @@ import org.junit.jupiter.api.Assertions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class GatlingReporterTest {
+public class ConvertCamelCaseToSnakeTest {
 
     @Test
-    public void testConvertCamelCaseToSnakeNominalCase() {
+    public void testNominalCase() {
         // Given
         String input = "camelCaseString";
         String expectedOutput = "camel_case_string";
         GatlingReporter gatlingReporter = new GatlingReporter();
         // When
-        String actualOutput = gatlingReporter.convertCamelCaseToSnakeRegex(input);
+        String actualOutput = gatlingReporter.convertCamelCaseToSnake(input);
 
         // Then
         assertThat(actualOutput).isEqualTo(expectedOutput);
     }
 
     @Test
-    public void testConvertCamelCaseToSnakeNullValue() {
+    public void testNullValue() {
         // Given
         String expectedOutput = "camel_case_string";
         GatlingReporter gatlingReporter = new GatlingReporter();
-        Assertions.assertThrows(NullPointerException.class, () -> gatlingReporter.convertCamelCaseToSnakeRegex(null));
+        Assertions.assertThrows(NullPointerException.class, () -> gatlingReporter.convertCamelCaseToSnake(null));
     }
+
+
 
 }

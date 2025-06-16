@@ -219,7 +219,7 @@ public class GatlingReporter {
                 myKey = indicatorsMapper.get(key);
             }
 
-            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(myKey.replaceAll("\\s", "_"));
+            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnake(myKey.replaceAll("\\s", "_"));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
             Counter counterTotal = buildCounter(prometheusRegistry, run, snakeCaseKey , total);
             counters.add(counterTotal);
@@ -255,7 +255,7 @@ public class GatlingReporter {
         return counter;
     }
 
-    public String convertCamelCaseToSnakeRegex(String metricName) {
+    public String convertCamelCaseToSnake(String metricName) {
         Preconditions.checkNotNull(metricName,"metricName is null");
         return metricName
                 .replaceAll("([A-Z])(?=[A-Z])", "$1_")
@@ -286,7 +286,7 @@ public class GatlingReporter {
                 .filter(name -> name.startsWith("group"))
                 .toList();
         String metricName = parent.getMember("name").toString();
-        String parentName = convertCamelCaseToSnakeRegex(metricName).replaceAll("\\s","_");
+        String parentName = convertCamelCaseToSnake(metricName).replaceAll("\\s","_");
         for (String groupId : list) {
             Value member = parent.getMember(groupId);
             long counterValue = member.getMember(COUNT).asLong();
