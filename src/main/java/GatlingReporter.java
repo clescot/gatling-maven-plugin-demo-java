@@ -68,14 +68,16 @@ public class GatlingReporter {
     private List<Counter> getGatlingExecutionMetrics(
                                                      File lastGatlingTestExecutionDirectory) throws IOException {
         Value root = getStatsVariable(lastGatlingTestExecutionDirectory);
+        String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
         List<Counter> counters = Lists.newArrayList();
-        List<Counter> rootCounters = getAttributes(root);
+        List<Counter> rootCounters = getAttributes(root,run);
         counters.addAll(rootCounters);
         Value requests = root.getMember(CONTENTS);
         Set<String> contentMemberKeys = requests.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
             List<Counter> contentCounters = getAttributes(
-                    root.getMember(CONTENTS).getMember(contentKey)
+                    root.getMember(CONTENTS).getMember(contentKey),
+                    run
             );
             counters.addAll(contentCounters);
         }
@@ -83,7 +85,7 @@ public class GatlingReporter {
         return counters;
     }
 
-    private List<Counter> getAttributes(Value root) {
+    private List<Counter> getAttributes(Value root,String run) {
 
 
         Value stats = root.getMember("stats");
@@ -93,7 +95,7 @@ public class GatlingReporter {
                 .filter(key -> !key.equals(NAME))
                 .toList();
         String statsName = stats.getMember("name").toString().toLowerCase().replaceAll("\\s", "_");
-        List<Counter> counters = registerStatsCounters(prometheusRegistry, statsName,
+        List<Counter> counters = registerStatsCounters(prometheusRegistry, run, statsName,
                 stats,
                 memberKeys
         );
@@ -203,6 +205,7 @@ public class GatlingReporter {
      * @return
      */
     private List<Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
+                                                String run,
                                                 String statsName,
                                                 Value parent,
                                                 List<String> keys) {
@@ -216,20 +219,22 @@ public class GatlingReporter {
 
             String snakeCaseKey = statsName + "_" + convertCamelCaseToSnakeRegex(myKey.replaceAll("\\s", "_"));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
-            Counter counterTotal = buildCounter(prometheusRegistry, snakeCaseKey , total);
+            Counter counterTotal = buildCounter(prometheusRegistry, run, snakeCaseKey , total);
             counters.add(counterTotal);
             String ok = replaceDashByNull(member.getMember(OK).asString());
-            Counter counterOk = buildCounter(prometheusRegistry, snakeCaseKey + "_ok", ok);
+            Counter counterOk = buildCounter(prometheusRegistry, run, snakeCaseKey + "_ok", ok);
             counters.add(counterOk);
             String ko = replaceDashByNull(member.getMember(KO).asString());
-            Counter counterKo = buildCounter(prometheusRegistry, snakeCaseKey + "_ko", ko);
+            Counter counterKo = buildCounter(prometheusRegistry, run, snakeCaseKey + "_ko", ko);
             counters.add(counterKo);
         }
         return counters;
     }
 
-    private Counter buildCounter(PrometheusRegistry prometheusRegistry, String snakeCaseKey, String value) {
-        Counter counter = Counter.builder().name(snakeCaseKey)
+    private Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
+        Counter counter = Counter.builder()
+                .name(snakeCaseKey)
+                .labelNames("run")
                 //.unit(Unit.SECONDS)
                 .register(prometheusRegistry);
         boolean convertMillisToSecondNeeded = false;
@@ -237,12 +242,13 @@ public class GatlingReporter {
             convertMillisToSecondNeeded = true;
         }
         if (value != null) {
+            double amountAsDouble;
             if (convertMillisToSecondNeeded) {
-                double amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
-                counter.inc(amountAsDouble);
+                amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
             } else {
-                counter.inc(Double.parseDouble(value));
+                amountAsDouble = Double.parseDouble(value);
             }
+            counter.labelValues(run).inc(amountAsDouble);
         }
         return counter;
     }
@@ -298,6 +304,7 @@ public class GatlingReporter {
                 .address(pushGatewayAddress)
                 .registry(prometheusRegistry)// not needed as localhost:9091 is the default
                 .job(jobName)
+                .instanceIpGroupingKey()
                 .build();
 
         pushGateway.push();
