@@ -87,14 +87,16 @@ public class GatlingReporter {
 
     private List<Counter> getAttributes(Value root,String run) {
 
-
         Value stats = root.getMember("stats");
         Set<String> statsMemberKeys = stats.getMemberKeys();
         List<String> memberKeys = statsMemberKeys.stream()
                 .filter(key -> !key.startsWith("group"))
                 .filter(key -> !key.equals(NAME))
                 .toList();
-        String statsName = stats.getMember("name").toString().toLowerCase().replaceAll("\\s", "_");
+        String statsName = stats.getMember("name")
+                .toString()
+                .toLowerCase()
+                .replaceAll("\\s", "_");
         List<Counter> counters = registerStatsCounters(prometheusRegistry, run, statsName,
                 stats,
                 memberKeys
@@ -253,18 +255,17 @@ public class GatlingReporter {
         return counter;
     }
 
-    public String convertCamelCaseToSnakeRegex(String input) {
-        return input
+    public String convertCamelCaseToSnakeRegex(String metricName) {
+        Preconditions.checkNotNull(metricName,"metricName is null");
+        return metricName
                 .replaceAll("([A-Z])(?=[A-Z])", "$1_")
                 .replaceAll("([a-z])([A-Z])", "$1_$2")
                 .toLowerCase();
     }
 
 
-    private Counter parseGroup(PrometheusRegistry prometheusRegistry,String parentName, Value value) {
-        Value member = value.getMember(NAME);
-        String string = parentName+"_"+ member
-                .asString()
+     Counter parseGroup(PrometheusRegistry prometheusRegistry, String parentName, String memberAsString, long counterValue) {
+        String string = parentName+"_"+ memberAsString
                 .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms_count")
                 .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms_count")
                 .replaceAll("< (\\d*) ms","lower_than_$1_ms_count")
@@ -275,7 +276,7 @@ public class GatlingReporter {
         Counter counter = Counter.builder()
                 .name(string)
                 .register(prometheusRegistry);
-        counter.inc(Long.parseLong(value.getMember(COUNT).asInt() + ""));
+        counter.inc(counterValue);
         return counter;
     }
 
@@ -284,9 +285,15 @@ public class GatlingReporter {
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
                 .toList();
-        String parentName = convertCamelCaseToSnakeRegex(parent.getMember("name").toString()).replaceAll("\\s","_");
+        String metricName = parent.getMember("name").toString();
+        String parentName = convertCamelCaseToSnakeRegex(metricName).replaceAll("\\s","_");
         for (String groupId : list) {
-            groupCounters.add(parseGroup(prometheusRegistry, parentName, parent.getMember(groupId)));
+            Value member = parent.getMember(groupId);
+            long counterValue = member.getMember(COUNT).asLong();
+            String memberNameAsString = member.getMember(NAME).asString();
+            groupCounters.add(
+                    parseGroup(prometheusRegistry, parentName, memberNameAsString, counterValue)
+            );
         }
         return groupCounters;
     }
