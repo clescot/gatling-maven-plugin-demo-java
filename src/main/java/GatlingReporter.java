@@ -123,11 +123,15 @@ public class GatlingReporter {
 
     private Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
+        return getValue(jsContent, "stats");
+    }
+
+    private Value getValue(String jsContent, String key) {
         Value contextBindings;
         Context context = Context.newBuilder(LANGUAGE_ID).build();
         context.eval(LANGUAGE_ID, jsContent);
         contextBindings = context.getBindings(LANGUAGE_ID);
-        return contextBindings.getMember("stats");
+        return contextBindings.getMember(key);
     }
 
     private File getLastGatlingDirectory() {
