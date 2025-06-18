@@ -233,14 +233,17 @@ public class GatlingReporter {
         return counters;
     }
 
-    private Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
+    protected Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
         Counter counter = Counter.builder()
                 .name(snakeCaseKey)
                 .labelNames("run")
                 //.unit(Unit.SECONDS)
                 .register(prometheusRegistry);
         boolean convertMillisToSecondNeeded = false;
-        if (!snakeCaseKey.contains("per_second")) {
+        if (!snakeCaseKey.contains("per_second")
+            &&!snakeCaseKey.contains("number_of") //no unit
+            &&!snakeCaseKey.contains("_total")
+        ) {
             convertMillisToSecondNeeded = true;
         }
         if (value != null) {
@@ -265,6 +268,9 @@ public class GatlingReporter {
 
 
      Counter parseGroup(PrometheusRegistry prometheusRegistry, String parentName, String memberAsString, long counterValue) {
+        Preconditions.checkNotNull(prometheusRegistry,"prometheusRegistry is null");
+        Preconditions.checkNotNull(parentName,"parentName is null");
+        Preconditions.checkNotNull(memberAsString,"memberAsString is null");
         String string = parentName+"_"+ memberAsString
                 .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms_count")
                 .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms_count")
