@@ -134,7 +134,7 @@ public class GatlingReporter {
         return contextBindings.getMember(key);
     }
 
-    private File getLastGatlingDirectory() {
+    protected File getLastGatlingDirectory() {
         Path absolutePath = Paths.get("").toAbsolutePath();
         Path target = absolutePath.resolve("target/gatling");
         File gatlingDir = new File(target.toString());
