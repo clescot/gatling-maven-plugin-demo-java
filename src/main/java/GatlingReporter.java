@@ -155,7 +155,7 @@ public class GatlingReporter {
         indicatorsMapper.put("higherBound", "higher_bound_1200");
         return indicatorsMapper;
     }
-    private Map<String, String> updateIndicatorsMapper(Map<String, String> defaultIndicatorsMapper, String gatlingConf) {
+    Map<String, String> updateIndicatorsMapper(Map<String, String> defaultIndicatorsMapper, String gatlingConf) {
         String percentile1 = "50";
         String percentile2 = "75";
         String percentile3 = "95";
@@ -181,10 +181,10 @@ public class GatlingReporter {
         if (indicatorsConfig.hasPath("higherBound")) {
             higherBound = ""+indicatorsConfig.getInt("higherBound");
         }
-        defaultIndicatorsMapper.put("percentile1", "p"+percentile1);
-        defaultIndicatorsMapper.put("percentile2", "p"+percentile2);
-        defaultIndicatorsMapper.put("percentile3", "p"+percentile3);
-        defaultIndicatorsMapper.put("percentile4", "p"+percentile4);
+        defaultIndicatorsMapper.put("percentiles1", "p"+percentile1);
+        defaultIndicatorsMapper.put("percentiles2", "p"+percentile2);
+        defaultIndicatorsMapper.put("percentiles3", "p"+percentile3);
+        defaultIndicatorsMapper.put("percentiles4", "p"+percentile4);
         defaultIndicatorsMapper.put("lowerBound", "lower_bound_"+lowerBound);
         defaultIndicatorsMapper.put("higherBound", "higher_bound_"+higherBound);
         return defaultIndicatorsMapper;
