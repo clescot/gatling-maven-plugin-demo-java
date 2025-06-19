@@ -123,10 +123,10 @@ public class GatlingReporter {
 
     private Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
-        return getValue(jsContent, "stats");
+        return getJavascriptValueBoundToKey(jsContent, "stats");
     }
 
-    private Value getValue(String jsContent, String key) {
+    Value getJavascriptValueBoundToKey(String jsContent, String key) {
         Value contextBindings;
         Context context = Context.newBuilder(LANGUAGE_ID).build();
         context.eval(LANGUAGE_ID, jsContent);
@@ -290,7 +290,7 @@ public class GatlingReporter {
         return counter;
     }
 
-    private List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent) {
+    List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent) {
         List<Counter> groupCounters = Lists.newArrayList();
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
