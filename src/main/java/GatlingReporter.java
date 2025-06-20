@@ -308,7 +308,7 @@ public class GatlingReporter {
         return groupCounters;
     }
 
-    private String replaceDashByNull(String value) {
+    String replaceDashByNull(String value) {
         if ("-".equals(value)) {
             return null;
         }
