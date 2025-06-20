@@ -238,18 +238,42 @@ public class GatlingReporter {
     }
 
     protected Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
-        Counter counter = Counter.builder()
+        Counter.Builder builder = Counter.builder()
                 .name(snakeCaseKey)
-                .labelNames("run")
-                //.unit(Unit.SECONDS)
-                .register(prometheusRegistry);
+                .labelNames("run");
         boolean convertMillisToSecondNeeded = false;
-        if (!snakeCaseKey.contains("per_second")
-            &&!snakeCaseKey.contains("number_of") //no unit
-            &&!snakeCaseKey.contains("_total")
-        ) {
+
+        if(snakeCaseKey.contains("number_of_requests")){
+            builder = builder.help("Number of requests for run " + run);
+            //no unit
+        } else if (snakeCaseKey.contains("mean_number_of_requests_per_second")) {
+            builder = builder.help("Mean number of requests per second for run " + run);
+            builder = builder.unit(Unit.SECONDS);
+        } else if (snakeCaseKey.contains("min_response_time")) {
+            builder = builder.help("Minimum response time for run " + run);
+            builder = builder.unit(Unit.SECONDS);
+            convertMillisToSecondNeeded = true;
+        } else if (snakeCaseKey.contains("max_response_time")) {
+            builder = builder.help("Maximum response time for run " + run);
+            builder = builder.unit(Unit.SECONDS);
+            convertMillisToSecondNeeded = true;
+        } else if (snakeCaseKey.contains("mean_response_time")) {
+            builder = builder.help("Mean response time for run " + run);
+            builder = builder.unit(Unit.SECONDS);
+            convertMillisToSecondNeeded = true;
+        } else if (snakeCaseKey.contains("standard_deviation")) {
+            builder = builder.help("Standard deviation of response time for run " + run);
+            builder = builder.unit(Unit.SECONDS);
+            convertMillisToSecondNeeded = true;
+        } else if (snakeCaseKey.contains("percentiles")) {
+            builder = builder.help("Percentiles of response time for run " + run);
+            builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         }
+        Counter counter = builder
+                .register(prometheusRegistry);
+
+
         if (value != null) {
             double amountAsDouble;
             if (convertMillisToSecondNeeded) {
