@@ -70,7 +70,7 @@ public class ParseGroupsTest {
                     "group1": {
                     "name": "t < 800 ms",
                     "htmlName": "t < 800 ms",
-                    "count": 1,
+                    "count": 16,
                     "percentage": 100.0
                 },
                     "group2": {
@@ -82,13 +82,13 @@ public class ParseGroupsTest {
                     "group3": {
                     "name": "t >= 1200 ms",
                     "htmlName": "t >= 1200 ms",
-                    "count": 0,
+                    "count": 3,
                     "percentage": 0.0
                 },
                     "group4": {
                     "name": "failed",
                     "htmlName": "failed",
-                    "count": 0,
+                    "count": 10,
                     "percentage": 0.0
                 },
                     "meanNumberOfRequestsPerSecond": {
@@ -231,5 +231,13 @@ public class ParseGroupsTest {
         Value stats = gatlingReporter.getJavascriptValueBoundToKey(javascriptContent, "stats");
         List<Counter> countersFromGroups = gatlingReporter.parseGroups(prometheusRegistry, stats.getMember("stats"));
         assertThat(countersFromGroups.size()).isEqualTo(4);
+        assertThat(countersFromGroups.get(0).getPrometheusName()).isEqualTo("all_requests_t_lower_than_800_ms_count");
+        assertThat(countersFromGroups.get(0).getLongValue()).isEqualTo(16L);
+        assertThat(countersFromGroups.get(1).getPrometheusName()).isEqualTo("all_requests_t_between_800_and_1200_ms_count");
+        assertThat(countersFromGroups.get(1).getLongValue()).isEqualTo(0L);
+        assertThat(countersFromGroups.get(2).getPrometheusName()).isEqualTo("all_requests_t_higher_or_equal_than_1200_ms_count");
+        assertThat(countersFromGroups.get(2).getLongValue()).isEqualTo(3L);
+        assertThat(countersFromGroups.get(3).getPrometheusName()).isEqualTo("all_requests_failed");
+        assertThat(countersFromGroups.get(3).getLongValue()).isEqualTo(10L);
     }
 }
