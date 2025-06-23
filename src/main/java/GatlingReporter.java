@@ -81,33 +81,36 @@ public class GatlingReporter {
         Value statsFromRoot = getStatsFromRootValue(lastGatlingTestExecutionDirectory);
         String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
         List<Counter> counters = Lists.newArrayList();
-        List<Counter> rootCounters = getCountersFromStats(statsFromRoot,run);
+        List<Counter> rootCounters = getCountersFromStats(statsFromRoot,run,null);
         counters.addAll(rootCounters);
         Value contents = statsFromRoot.getMember(CONTENTS);
-        List<Counter> countersFromContent = getCountersFromContent(contents, run, counters);
+        List<Counter> countersFromContent = getCountersFromContent(contents, run,null, counters);
         counters.addAll(countersFromContent);
         return counters;
     }
 
-    private List<Counter> getCountersFromContent(Value contents, String run, List<Counter> counters) {
+    private List<Counter> getCountersFromContent(Value contents, String run, String prefix,List<Counter> counters) {
         Set<String> contentMemberKeys = contents.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
             Value member = contents.getMember(contentKey);
+            String prefixKey = Optional.ofNullable(prefix).orElse("root") + "_";
             List<Counter> contentCounters = getCountersFromStats(
                     member,
-                    run
+                    run,
+                    prefixKey + contentKey
             );
             counters.addAll(contentCounters);
             if(member.getMember("contents") != null) {
                 Value subContents = member.getMember("contents");
-                List<Counter> subContentCounters = getCountersFromContent(subContents, run+"_"+contentKey, counters);
+
+                List<Counter> subContentCounters = getCountersFromContent(subContents, run,prefixKey+"_"+contentKey, counters);
                 counters.addAll(subContentCounters);
             }
         }
         return counters;
     }
 
-    private List<Counter> getCountersFromStats(Value statsValue, String run) {
+    private List<Counter> getCountersFromStats(Value statsValue, String run,String prefix) {
 
         Value stats = statsValue.getMember("stats");
         Set<String> statsMemberKeys = stats.getMemberKeys();
@@ -115,10 +118,12 @@ public class GatlingReporter {
                 .filter(key -> !key.startsWith("group"))
                 .filter(key -> !key.equals(NAME))
                 .toList();
-        String statsName = stats.getMember("name")
+        String statsName = Optional.ofNullable(prefix).orElse("root")+"_"+stats.getMember("name")
                 .toString()
                 .toLowerCase()
-                .replaceAll("\\s", "_");
+                .replaceAll("-", "_")
+                .replaceAll("\\s", "_")
+                ;
         List<Counter> counters = registerStatsCounters(prometheusRegistry, run, statsName,
                 stats,
                 memberKeys
@@ -245,7 +250,7 @@ public class GatlingReporter {
                 myKey = indicatorsMapper.get(key);
             }
 
-            String snakeCaseKey = statsName + "_" + convertCamelCaseToSnake(myKey.replaceAll("\\s", "_"));
+            String snakeCaseKey = fixPrometheusMetricName(statsName + "_" + convertCamelCaseToSnake(fixPrometheusMetricName(myKey)));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
             Counter counterTotal = buildCounter(prometheusRegistry, run, snakeCaseKey , total);
             counters.add(counterTotal);
@@ -257,6 +262,14 @@ public class GatlingReporter {
             counters.add(counterKo);
         }
         return counters;
+    }
+
+    protected String fixPrometheusMetricName(String metricName) {
+        Preconditions.checkNotNull(metricName,"metricName is null");
+        return metricName
+                .replaceAll("\\s", "_")
+                .replaceAll("-", "_")
+                .toLowerCase();
     }
 
     protected Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
@@ -342,7 +355,7 @@ public class GatlingReporter {
                 .filter(name -> name.startsWith("group"))
                 .toList();
         String metricName = parent.getMember("name").toString();
-        String parentName = convertCamelCaseToSnake(metricName).replaceAll("\\s","_");
+        String parentName = convertCamelCaseToSnake(fixPrometheusMetricName(metricName));
         for (String groupId : list) {
             Value member = parent.getMember(groupId);
             long counterValue = member.getMember(COUNT).asLong();
