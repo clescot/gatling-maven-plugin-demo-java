@@ -67,16 +67,16 @@ public class GatlingReporter {
 
     private List<Counter> getGatlingExecutionMetrics(
                                                      File lastGatlingTestExecutionDirectory) throws IOException {
-        Value root = getStatsContent(lastGatlingTestExecutionDirectory);
+        Value statsFromRoot = getStatsFromRootValue(lastGatlingTestExecutionDirectory);
         String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
         List<Counter> counters = Lists.newArrayList();
-        List<Counter> rootCounters = getAttributes(root,run);
+        List<Counter> rootCounters = getCountersFromStats(statsFromRoot,run);
         counters.addAll(rootCounters);
-        Value requests = root.getMember(CONTENTS);
-        Set<String> contentMemberKeys = requests.getMemberKeys();
+        Value contents = statsFromRoot.getMember(CONTENTS);
+        Set<String> contentMemberKeys = contents.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
-            List<Counter> contentCounters = getAttributes(
-                    root.getMember(CONTENTS).getMember(contentKey),
+            List<Counter> contentCounters = getCountersFromStats(
+                    statsFromRoot.getMember(CONTENTS).getMember(contentKey),
                     run
             );
             counters.addAll(contentCounters);
@@ -85,9 +85,9 @@ public class GatlingReporter {
         return counters;
     }
 
-    private List<Counter> getAttributes(Value root,String run) {
+    private List<Counter> getCountersFromStats(Value statsValue, String run) {
 
-        Value stats = root.getMember("stats");
+        Value stats = statsValue.getMember("stats");
         Set<String> statsMemberKeys = stats.getMemberKeys();
         List<String> memberKeys = statsMemberKeys.stream()
                 .filter(key -> !key.startsWith("group"))
@@ -121,7 +121,7 @@ public class GatlingReporter {
         return counters;
     }
 
-    private Value getStatsContent(File gatlingTestExecutionDirectory) throws IOException {
+    private Value getStatsFromRootValue(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
         return getJavascriptValueBoundToKey(jsContent, "stats");
     }
