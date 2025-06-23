@@ -67,7 +67,7 @@ public class GatlingReporter {
 
     private List<Counter> getGatlingExecutionMetrics(
                                                      File lastGatlingTestExecutionDirectory) throws IOException {
-        Value root = getStatsVariable(lastGatlingTestExecutionDirectory);
+        Value root = getStatsContent(lastGatlingTestExecutionDirectory);
         String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
         List<Counter> counters = Lists.newArrayList();
         List<Counter> rootCounters = getAttributes(root,run);
@@ -121,7 +121,7 @@ public class GatlingReporter {
         return counters;
     }
 
-    private Value getStatsVariable(File gatlingTestExecutionDirectory) throws IOException {
+    private Value getStatsContent(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
         return getJavascriptValueBoundToKey(jsContent, "stats");
     }
