@@ -41,14 +41,27 @@ public class GatlingReporter {
         String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
         String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource(Optional.ofNullable(gatlingConfPath).orElse("gatling.conf"));
-
+        Optional<String> directory = Optional.ofNullable(env.get("gatlingDirectory"));
         GatlingReporter gatlingReporter;
         if(gatlingConfigUrl!=null) {
             gatlingReporter = new GatlingReporter(gatlingConfigUrl);
         }else{
             gatlingReporter = new GatlingReporter();
         }
-        List<Counter> counters = gatlingReporter.extractGatlingMetrics();
+        List<Counter> counters;
+        if(directory.isEmpty()) {
+            counters = gatlingReporter.extractGatlingMetricsFromLastDirectory();
+        }else {
+            URL resource = Thread.currentThread().getContextClassLoader().getResource(".");
+            if(resource == null) {
+                throw new IOException("Resource not found: .");
+            }
+            File gatlingDirectoryRelativePath = new File(resource.getPath()+"../gatling/"+directory.get());
+            if(!gatlingDirectoryRelativePath.exists()){
+                throw new IOException("Gatling directory does not exist: " + gatlingDirectoryRelativePath.getAbsolutePath());
+            }
+            counters = gatlingReporter.getGatlingExecutionMetrics(gatlingDirectoryRelativePath);
+        }
         gatlingReporter.pushToGateway(pushGatewayAddress,jobName);
     }
 
@@ -60,7 +73,7 @@ public class GatlingReporter {
 
     public GatlingReporter() {}
 
-    private List<Counter> extractGatlingMetrics() throws IOException {
+    private List<Counter> extractGatlingMetricsFromLastDirectory() throws IOException {
         File lastGatlingTestExecutionDirectory = getLastGatlingDirectory();
         return getGatlingExecutionMetrics(lastGatlingTestExecutionDirectory);
     }
@@ -73,15 +86,26 @@ public class GatlingReporter {
         List<Counter> rootCounters = getCountersFromStats(statsFromRoot,run);
         counters.addAll(rootCounters);
         Value contents = statsFromRoot.getMember(CONTENTS);
+        List<Counter> countersFromContent = getCountersFromContent(contents, run, counters);
+        counters.addAll(countersFromContent);
+        return counters;
+    }
+
+    private List<Counter> getCountersFromContent(Value contents, String run, List<Counter> counters) {
         Set<String> contentMemberKeys = contents.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
+            Value member = contents.getMember(contentKey);
             List<Counter> contentCounters = getCountersFromStats(
-                    statsFromRoot.getMember(CONTENTS).getMember(contentKey),
+                    member,
                     run
             );
             counters.addAll(contentCounters);
+            if(member.getMember("contents") != null) {
+                Value subContents = member.getMember("contents");
+                List<Counter> subContentCounters = getCountersFromContent(subContents, run+"_"+contentKey, counters);
+                counters.addAll(subContentCounters);
+            }
         }
-
         return counters;
     }
 
