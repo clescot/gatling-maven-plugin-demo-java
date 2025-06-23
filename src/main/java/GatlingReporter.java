@@ -28,9 +28,7 @@ public class GatlingReporter {
     public static final String KO = "ko";
     public static final String TOTAL = "total";
     public static final String NAME = "name";
-    public static final String HTML_NAME = "htmlName";
     public static final String COUNT = "count";
-    public static final String PERCENTAGE = "percentage";
     private final Map<String,String> indicatorsMapper = getIndicatorsMapper();
     private final PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
 
