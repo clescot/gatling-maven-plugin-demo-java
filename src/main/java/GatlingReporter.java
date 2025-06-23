@@ -76,7 +76,7 @@ public class GatlingReporter {
         return getGatlingExecutionMetrics(lastGatlingTestExecutionDirectory);
     }
 
-    private List<Counter> getGatlingExecutionMetrics(
+    protected List<Counter> getGatlingExecutionMetrics(
                                                      File lastGatlingTestExecutionDirectory) throws IOException {
         Value statsFromRoot = getStatsFromRootValue(lastGatlingTestExecutionDirectory);
         String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
