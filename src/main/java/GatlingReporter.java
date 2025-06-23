@@ -129,7 +129,7 @@ public class GatlingReporter {
                 memberKeys
         );
 
-        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats);
+        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats,statsName);
         counters.addAll(groupCounters);
         //col-2 => total
         //col-3 => nombre de OK
@@ -349,13 +349,12 @@ public class GatlingReporter {
         return counter;
     }
 
-    List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent) {
+    List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent,String statsName) {
         List<Counter> groupCounters = Lists.newArrayList();
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
                 .toList();
-        String metricName = parent.getMember("name").toString();
-        String parentName = convertCamelCaseToSnake(fixPrometheusMetricName(metricName));
+        String parentName = convertCamelCaseToSnake(fixPrometheusMetricName(statsName));
         for (String groupId : list) {
             Value member = parent.getMember(groupId);
             long counterValue = member.getMember(COUNT).asLong();
