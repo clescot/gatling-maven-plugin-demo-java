@@ -229,7 +229,7 @@ public class ParseGroupsTest {
                 
                 """;
         Value stats = gatlingReporter.getJavascriptValueBoundToKey(javascriptContent, "stats");
-        List<Counter> countersFromGroups = gatlingReporter.parseGroups(prometheusRegistry, stats.getMember("stats"));
+        List<Counter> countersFromGroups = gatlingReporter.parseGroups(prometheusRegistry, stats.getMember("stats"),"all_requests");
         assertThat(countersFromGroups.size()).isEqualTo(4);
         assertThat(countersFromGroups.get(0).getPrometheusName()).isEqualTo("all_requests_t_lower_than_800_ms_count");
         assertThat(countersFromGroups.get(0).getLongValue()).isEqualTo(16L);

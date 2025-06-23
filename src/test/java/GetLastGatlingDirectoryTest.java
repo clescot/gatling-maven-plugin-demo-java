@@ -11,7 +11,7 @@ public class GetLastGatlingDirectoryTest {
     public void testGetLastGatlingDirectory() {
         // Given
         GatlingReporter gatlingReporter = new GatlingReporter();
-        String expectedDirectory = "target"+File.separator+"gatling"+File.separator+"basicsimulation-20250616094945181";
+        String expectedDirectory = "target"+File.separator+"gatling"+File.separator+"advancedsimulation-20250623092240241";
         Path absolutePath = Paths.get("").toAbsolutePath();
         // When
         String lastGatlingDirectory = gatlingReporter.getLastGatlingDirectory().getPath();
