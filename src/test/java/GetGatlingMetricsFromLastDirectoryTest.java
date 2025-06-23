@@ -6,7 +6,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ExtractGatlingMetricsFromLastDirectoryTest {
+public class GetGatlingMetricsFromLastDirectoryTest {
 
     @Test
     public void testExtractGatlingMetricsFromLastDirectory() throws IOException {
@@ -14,7 +14,7 @@ public class ExtractGatlingMetricsFromLastDirectoryTest {
         GatlingReporter gatlingReporter = new GatlingReporter();
 
         // When
-        List<Counter> counters = gatlingReporter.extractGatlingMetricsFromLastDirectory();
+        List<Counter> counters = gatlingReporter.getGatlingMetricsFromLastDirectory();
 
         // Then
        assertThat(counters).isNotNull();

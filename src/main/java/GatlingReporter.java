@@ -47,7 +47,7 @@ public class GatlingReporter {
     private List<Counter> getMetrics(Optional<String> directory) throws IOException {
         List<Counter> counters;
         if(directory.isEmpty()) {
-            counters = extractGatlingMetricsFromLastDirectory();
+            counters = getGatlingMetricsFromLastDirectory();
         }else {
             URL resource = Thread.currentThread().getContextClassLoader().getResource(".");
             if(resource == null) {
@@ -83,7 +83,7 @@ public class GatlingReporter {
 
     public GatlingReporter() {}
 
-    protected List<Counter> extractGatlingMetricsFromLastDirectory() throws IOException {
+    protected List<Counter> getGatlingMetricsFromLastDirectory() throws IOException {
         File lastGatlingTestExecutionDirectory = getLastGatlingDirectory();
         return getGatlingExecutionMetrics(lastGatlingTestExecutionDirectory);
     }
