@@ -148,7 +148,7 @@ public class GatlingReporter {
         return counters;
     }
 
-    private Value getStatsFromRootValue(File gatlingTestExecutionDirectory) throws IOException {
+    protected Value getStatsFromRootValue(File gatlingTestExecutionDirectory) throws IOException {
         String jsContent = new String(Files.readAllBytes(Paths.get(gatlingTestExecutionDirectory.toString() + STATS_JS_PATH)));
         return getJavascriptValueBoundToKey(jsContent, "stats");
     }
