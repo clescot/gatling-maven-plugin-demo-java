@@ -35,32 +35,44 @@ public class GatlingReporter {
 
     public static void main(String[] args) throws IOException, URISyntaxException {
         Map<String, String> env = System.getenv();
-        String gatlingConfPath = env.get("gatlingConfPath");
+        GatlingReporter gatlingReporter = getGatlingReporter(env);
+        List<Counter> counters;
+        Optional<String> directory = Optional.ofNullable(env.get("gatlingDirectory"));
+        counters = gatlingReporter.getMetrics(directory);
         String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
         String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
+        gatlingReporter.pushToGateway(pushGatewayAddress,jobName);
+    }
+
+    private List<Counter> getMetrics(Optional<String> directory) throws IOException {
+        List<Counter> counters;
+        if(directory.isEmpty()) {
+            counters = extractGatlingMetricsFromLastDirectory();
+        }else {
+            URL resource = Thread.currentThread().getContextClassLoader().getResource(".");
+            if(resource == null) {
+                throw new IOException("Resource not found: .");
+            }
+            File gatlingDirectoryRelativePath = new File(resource.getPath()+"../gatling/"+ directory.get());
+            if(!gatlingDirectoryRelativePath.exists()){
+                throw new IOException("Gatling directory does not exist: " + gatlingDirectoryRelativePath.getAbsolutePath());
+            }
+            counters = getGatlingExecutionMetrics(gatlingDirectoryRelativePath);
+        }
+        return counters;
+    }
+
+    private static GatlingReporter getGatlingReporter(Map<String, String> env) throws IOException, URISyntaxException {
+        String gatlingConfPath = env.get("gatlingConfPath");
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource(Optional.ofNullable(gatlingConfPath).orElse("gatling.conf"));
-        Optional<String> directory = Optional.ofNullable(env.get("gatlingDirectory"));
+
         GatlingReporter gatlingReporter;
         if(gatlingConfigUrl!=null) {
             gatlingReporter = new GatlingReporter(gatlingConfigUrl);
         }else{
             gatlingReporter = new GatlingReporter();
         }
-        List<Counter> counters;
-        if(directory.isEmpty()) {
-            counters = gatlingReporter.extractGatlingMetricsFromLastDirectory();
-        }else {
-            URL resource = Thread.currentThread().getContextClassLoader().getResource(".");
-            if(resource == null) {
-                throw new IOException("Resource not found: .");
-            }
-            File gatlingDirectoryRelativePath = new File(resource.getPath()+"../gatling/"+directory.get());
-            if(!gatlingDirectoryRelativePath.exists()){
-                throw new IOException("Gatling directory does not exist: " + gatlingDirectoryRelativePath.getAbsolutePath());
-            }
-            counters = gatlingReporter.getGatlingExecutionMetrics(gatlingDirectoryRelativePath);
-        }
-        gatlingReporter.pushToGateway(pushGatewayAddress,jobName);
+        return gatlingReporter;
     }
 
 
@@ -71,7 +83,7 @@ public class GatlingReporter {
 
     public GatlingReporter() {}
 
-    private List<Counter> extractGatlingMetricsFromLastDirectory() throws IOException {
+    protected List<Counter> extractGatlingMetricsFromLastDirectory() throws IOException {
         File lastGatlingTestExecutionDirectory = getLastGatlingDirectory();
         return getGatlingExecutionMetrics(lastGatlingTestExecutionDirectory);
     }
