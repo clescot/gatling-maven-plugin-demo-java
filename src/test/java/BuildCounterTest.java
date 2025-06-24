@@ -1,5 +1,6 @@
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import org.graalvm.collections.Pair;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,12 +17,12 @@ public class BuildCounterTest {
         long counterValue = 1L;
 
         // When
-        Counter counter = gatlingReporter.buildCounter(prometheusRegistry, run, snakeCaseMetricName, counterValue+"");
-
+        Counter counter = gatlingReporter.buildCounter(prometheusRegistry,  snakeCaseMetricName,"run","status").getLeft();
+        counter.labelValues(run,"ok").inc(counterValue);
         // Then
         assertThat(counter.getPrometheusName()).isEqualTo(snakeCaseMetricName);
         ;
-        assertThat(counter.labelValues(run).getLongValue()).isEqualTo(counterValue);
+        assertThat(counter.labelValues(run,"ok").getLongValue()).isEqualTo(counterValue);
     }
 
     @Test
@@ -34,11 +35,12 @@ public class BuildCounterTest {
         long counterValue = 4235L;
 
         // When
-        Counter counter = gatlingReporter.buildCounter(prometheusRegistry, run, snakeCaseMetricName, counterValue+"");
-
+        Pair<Counter, Boolean> pair = gatlingReporter.buildCounter(prometheusRegistry, snakeCaseMetricName, "run", "status");
+        Counter counter = pair.getLeft();
+        counter.labelValues(run,"ok").inc(pair.getRight()?counterValue/1000:counterValue);
         // Then
         assertThat(counter.getPrometheusName()).isEqualTo(snakeCaseMetricName+"_seconds");
         ;
-        assertThat(counter.labelValues(run).getLongValue()).isEqualTo(counterValue/1000);
+        assertThat(counter.labelValues(run,"ok").getLongValue()).isEqualTo(counterValue/1000);
     }
 }
