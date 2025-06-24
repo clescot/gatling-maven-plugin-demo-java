@@ -276,7 +276,7 @@ public class GatlingReporter {
         return counters;
     }
 
-    protected Counter setValue(Counter counter, boolean convertMillisToSecondNeeded, String value, String... labelValues){
+    protected void setValue(Counter counter, boolean convertMillisToSecondNeeded, String value, String... labelValues){
         if (value != null) {
             double amountAsDouble;
             if (convertMillisToSecondNeeded) {
@@ -286,7 +286,6 @@ public class GatlingReporter {
             }
             counter.labelValues(labelValues).inc(amountAsDouble);
         }
-        return counter;
     }
     protected String fixPrometheusMetricName(String metricName) {
         Preconditions.checkNotNull(metricName,"metricName is null");
