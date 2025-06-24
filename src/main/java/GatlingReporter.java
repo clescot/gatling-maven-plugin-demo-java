@@ -230,26 +230,6 @@ public class GatlingReporter {
         return defaultIndicatorsMapper;
     }
 
-
-
-    /**
-     * keys
-     * 0 = "numberOfRequests" => Counter
-     * 1 = "minResponseTime" =>
-     * 2 = "maxResponseTime"
-     * 3 = "meanResponseTime"
-     * 4 = "standardDeviation"
-     * 5 = "percentiles1"
-     * 6 = "percentiles2"
-     * 7 = "percentiles3"
-     * 8 = "percentiles4"
-     * 9 = "meanNumberOfRequestsPerSecond"
-     *
-     * @param prometheusRegistry
-     * @param parent
-     * @param keys
-     * @return
-     */
     private List<Counter> registerStatsCounters(PrometheusRegistry prometheusRegistry,
                                                 String run,
                                                 String statsName,
