@@ -296,54 +296,6 @@ public class GatlingReporter {
                 .toLowerCase();
     }
 
-//    protected Counter buildCounter(PrometheusRegistry prometheusRegistry,String run, String snakeCaseKey,  String value) {
-//        Counter.Builder builder = Counter.builder()
-//                .name(snakeCaseKey)
-//                .labelNames("run");
-//        boolean convertMillisToSecondNeeded = false;
-//
-//        if(snakeCaseKey.contains("number_of_requests")){
-//            builder = builder.help("Number of requests for run " + run);
-//            //no unit
-//        } else if (snakeCaseKey.contains("mean_number_of_requests_per_second")) {
-//            builder = builder.help("Mean number of requests per second for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//        } else if (snakeCaseKey.contains("min_response_time")) {
-//            builder = builder.help("Minimum response time for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//            convertMillisToSecondNeeded = true;
-//        } else if (snakeCaseKey.contains("max_response_time")) {
-//            builder = builder.help("Maximum response time for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//            convertMillisToSecondNeeded = true;
-//        } else if (snakeCaseKey.contains("mean_response_time")) {
-//            builder = builder.help("Mean response time for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//            convertMillisToSecondNeeded = true;
-//        } else if (snakeCaseKey.contains("standard_deviation")) {
-//            builder = builder.help("Standard deviation of response time for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//            convertMillisToSecondNeeded = true;
-//        } else if (snakeCaseKey.contains("percentiles")) {
-//            builder = builder.help("Percentiles of response time for run " + run);
-//            builder = builder.unit(Unit.SECONDS);
-//            convertMillisToSecondNeeded = true;
-//        }
-//        Counter counter = builder
-//                .register(prometheusRegistry);
-//
-//
-//        if (value != null) {
-//            double amountAsDouble;
-//            if (convertMillisToSecondNeeded) {
-//                amountAsDouble = Unit.millisToSeconds(Long.parseLong(value));
-//            } else {
-//                amountAsDouble = Double.parseDouble(value);
-//            }
-//            counter.labelValues(run).inc(amountAsDouble);
-//        }
-//        return counter;
-//    }
     protected Pair<Counter,Boolean> buildCounter(PrometheusRegistry prometheusRegistry,String snakeCaseKey,String... labelNames) {
         Preconditions.checkNotNull(prometheusRegistry,"prometheusRegistry is null");
         Counter.Builder builder = Counter.builder()
