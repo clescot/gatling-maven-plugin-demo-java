@@ -1,4 +1,3 @@
-version: '3.2'
 services:
   prom-pushgateway:
     image: prom/pushgateway:v1.11.1
