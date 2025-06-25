@@ -285,32 +285,32 @@ public class GatlingReporter {
         boolean convertMillisToSecondNeeded = false;
 
         if (snakeCaseKey.contains("number_of_requests")) {
-            builder = builder.help("Number of requests for run ");
+            builder = builder.help("Number of requests");
             //no unit
         } else if (snakeCaseKey.contains("mean_number_of_requests_per_second")) {
-            builder = builder.help("Mean number of requests per second for run ");
+            builder = builder.help("Mean number of requests per second");
             builder = builder.unit(Unit.SECONDS);
         } else if (snakeCaseKey.contains("min_response_time")) {
-            builder = builder.help("Minimum response time for run ");
+            builder = builder.help("Minimum response time");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         } else if (snakeCaseKey.contains("max_response_time")) {
-            builder = builder.help("Maximum response time for run ");
+            builder = builder.help("Maximum response time");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         } else if (snakeCaseKey.contains("mean_response_time")) {
-            builder = builder.help("Mean response time for run ");
+            builder = builder.help("Mean response time");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         } else if (snakeCaseKey.contains("standard_deviation")) {
-            builder = builder.help("Standard deviation of response time for run ");
+            builder = builder.help("Standard deviation of response time");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         } else if (snakeCaseKey.contains("p50") ||
                 snakeCaseKey.contains("p75") ||
                 snakeCaseKey.contains("p95") ||
                 snakeCaseKey.contains("p99")) {
-            builder = builder.help("Percentiles of response time for run ");
+            builder = builder.help("Percentiles of response time");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
         }
