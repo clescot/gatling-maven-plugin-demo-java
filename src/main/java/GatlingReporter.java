@@ -30,7 +30,7 @@ public class GatlingReporter {
     public static final String TOTAL = "total";
     public static final String NAME = "name";
     public static final String COUNT = "count";
-    private final Map<String,String> indicatorsMapper = getIndicatorsMapper();
+    private final Map<String, String> indicatorsMapper = getIndicatorsMapper();
     private final PrometheusRegistry prometheusRegistry = new PrometheusRegistry();
 
 
@@ -42,20 +42,20 @@ public class GatlingReporter {
         counters = gatlingReporter.getMetrics(directory);
         String pushGatewayAddress = Optional.ofNullable(env.get("pushGatewayAddress")).orElse("localhost:9091");
         String jobName = Optional.ofNullable(env.get("jobName")).orElse("gatling");
-        gatlingReporter.pushToGateway(pushGatewayAddress,jobName);
+        gatlingReporter.pushToGateway(pushGatewayAddress, jobName);
     }
 
     private List<Counter> getMetrics(Optional<String> directory) throws IOException {
         List<Counter> counters;
-        if(directory.isEmpty()) {
+        if (directory.isEmpty()) {
             counters = getGatlingMetricsFromLastDirectory();
-        }else {
+        } else {
             URL resource = Thread.currentThread().getContextClassLoader().getResource(".");
-            if(resource == null) {
+            if (resource == null) {
                 throw new IOException("Resource not found: .");
             }
-            File gatlingDirectoryRelativePath = new File(resource.getPath()+"../gatling/"+ directory.get());
-            if(!gatlingDirectoryRelativePath.exists()){
+            File gatlingDirectoryRelativePath = new File(resource.getPath() + "../gatling/" + directory.get());
+            if (!gatlingDirectoryRelativePath.exists()) {
                 throw new IOException("Gatling directory does not exist: " + gatlingDirectoryRelativePath.getAbsolutePath());
             }
             counters = getGatlingExecutionMetrics(gatlingDirectoryRelativePath);
@@ -68,9 +68,9 @@ public class GatlingReporter {
         URL gatlingConfigUrl = Thread.currentThread().getContextClassLoader().getResource(Optional.ofNullable(gatlingConfPath).orElse("gatling.conf"));
 
         GatlingReporter gatlingReporter;
-        if(gatlingConfigUrl!=null) {
+        if (gatlingConfigUrl != null) {
             gatlingReporter = new GatlingReporter(gatlingConfigUrl);
-        }else{
+        } else {
             gatlingReporter = new GatlingReporter();
         }
         return gatlingReporter;
@@ -79,10 +79,11 @@ public class GatlingReporter {
 
     public GatlingReporter(URL gatlingConfigUrl) throws IOException, URISyntaxException {
         String gatlingConf = Files.readString(Paths.get(gatlingConfigUrl.toURI()));
-        updateIndicatorsMapper(this.indicatorsMapper,gatlingConf);
+        updateIndicatorsMapper(this.indicatorsMapper, gatlingConf);
     }
 
-    public GatlingReporter() {}
+    public GatlingReporter() {
+    }
 
     protected List<Counter> getGatlingMetricsFromLastDirectory() throws IOException {
         File lastGatlingTestExecutionDirectory = getLastGatlingDirectory();
@@ -90,19 +91,19 @@ public class GatlingReporter {
     }
 
     protected List<Counter> getGatlingExecutionMetrics(
-                                                     File lastGatlingTestExecutionDirectory) throws IOException {
+            File lastGatlingTestExecutionDirectory) throws IOException {
         Value statsFromRoot = getStatsFromRootValue(lastGatlingTestExecutionDirectory);
-        String run  = lastGatlingTestExecutionDirectory.getName().replaceAll("-","_");
+        String run = lastGatlingTestExecutionDirectory.getName().replaceAll("-", "_");
         List<Counter> counters = Lists.newArrayList();
-        List<Counter> rootCounters = getCountersFromStats(statsFromRoot,run,null);
+        List<Counter> rootCounters = getCountersFromStats(statsFromRoot, run, null);
         counters.addAll(rootCounters);
         Value contents = statsFromRoot.getMember(CONTENTS);
-        List<Counter> countersFromContent = getCountersFromContent(contents, run,null, counters);
+        List<Counter> countersFromContent = getCountersFromContent(contents, run, null, counters);
         counters.addAll(countersFromContent);
         return counters;
     }
 
-    private List<Counter> getCountersFromContent(Value contents, String run, String prefix,List<Counter> counters) {
+    private List<Counter> getCountersFromContent(Value contents, String run, String prefix, List<Counter> counters) {
         Set<String> contentMemberKeys = contents.getMemberKeys();
         for (String contentKey : contentMemberKeys) {
             Value member = contents.getMember(contentKey);
@@ -113,17 +114,17 @@ public class GatlingReporter {
                     prefixKey + contentKey
             );
             counters.addAll(contentCounters);
-            if(member.getMember("contents") != null) {
+            if (member.getMember("contents") != null) {
                 Value subContents = member.getMember("contents");
 
-                List<Counter> subContentCounters = getCountersFromContent(subContents, run,prefixKey+"_"+contentKey, counters);
+                List<Counter> subContentCounters = getCountersFromContent(subContents, run, prefixKey + "_" + contentKey, counters);
                 counters.addAll(subContentCounters);
             }
         }
         return counters;
     }
 
-    private List<Counter> getCountersFromStats(Value statsValue, String run,String prefix) {
+    private List<Counter> getCountersFromStats(Value statsValue, String run, String prefix) {
 
         Value stats = statsValue.getMember("stats");
         Set<String> statsMemberKeys = stats.getMemberKeys();
@@ -131,18 +132,17 @@ public class GatlingReporter {
                 .filter(key -> !key.startsWith("group"))
                 .filter(key -> !key.equals(NAME))
                 .toList();
-        String statsName = Optional.ofNullable(prefix).orElse("root")+"_"+stats.getMember("name")
+        String statsName = Optional.ofNullable(prefix).orElse("root") + "_" + stats.getMember("name")
                 .toString()
                 .toLowerCase()
                 .replaceAll("-", "_")
-                .replaceAll("\\s", "_")
-                ;
+                .replaceAll("\\s", "_");
         List<Counter> counters = registerStatsCounters(prometheusRegistry, run, statsName,
                 stats,
                 memberKeys
         );
 
-        List<Counter> groupCounters = parseGroups(prometheusRegistry,stats,statsName);
+        List<Counter> groupCounters = parseGroups(prometheusRegistry, stats, statsName);
         counters.addAll(groupCounters);
         //col-2 => total
         //col-3 => nombre de OK
@@ -195,6 +195,7 @@ public class GatlingReporter {
         indicatorsMapper.put("higherBound", "higher_bound_1200");
         return indicatorsMapper;
     }
+
     Map<String, String> updateIndicatorsMapper(Map<String, String> defaultIndicatorsMapper, String gatlingConf) {
         String percentile1 = "50";
         String percentile2 = "75";
@@ -204,29 +205,29 @@ public class GatlingReporter {
         String higherBound = "1200";
         Config indicatorsConfig = ConfigFactory.parseString(gatlingConf).getConfig("gatling.charting.indicators");
         if (indicatorsConfig.hasPath("percentile1")) {
-            percentile1 = ""+indicatorsConfig.getInt("percentile1");
+            percentile1 = "" + indicatorsConfig.getInt("percentile1");
         }
         if (indicatorsConfig.hasPath("percentile2")) {
-            percentile2 = ""+indicatorsConfig.getInt("percentile2");
+            percentile2 = "" + indicatorsConfig.getInt("percentile2");
         }
         if (indicatorsConfig.hasPath("percentile3")) {
-            percentile3 = ""+indicatorsConfig.getInt("percentile3");
+            percentile3 = "" + indicatorsConfig.getInt("percentile3");
         }
         if (indicatorsConfig.hasPath("percentile4")) {
-            percentile4 = ""+indicatorsConfig.getInt("percentile4");
+            percentile4 = "" + indicatorsConfig.getInt("percentile4");
         }
         if (indicatorsConfig.hasPath("lowerBound")) {
-            lowerBound = ""+indicatorsConfig.getInt("lowerBound");
+            lowerBound = "" + indicatorsConfig.getInt("lowerBound");
         }
         if (indicatorsConfig.hasPath("higherBound")) {
-            higherBound = ""+indicatorsConfig.getInt("higherBound");
+            higherBound = "" + indicatorsConfig.getInt("higherBound");
         }
-        defaultIndicatorsMapper.put("percentiles1", "p"+percentile1);
-        defaultIndicatorsMapper.put("percentiles2", "p"+percentile2);
-        defaultIndicatorsMapper.put("percentiles3", "p"+percentile3);
-        defaultIndicatorsMapper.put("percentiles4", "p"+percentile4);
-        defaultIndicatorsMapper.put("lowerBound", "lower_bound_"+lowerBound);
-        defaultIndicatorsMapper.put("higherBound", "higher_bound_"+higherBound);
+        defaultIndicatorsMapper.put("percentiles1", "p" + percentile1);
+        defaultIndicatorsMapper.put("percentiles2", "p" + percentile2);
+        defaultIndicatorsMapper.put("percentiles3", "p" + percentile3);
+        defaultIndicatorsMapper.put("percentiles4", "p" + percentile4);
+        defaultIndicatorsMapper.put("lowerBound", "lower_bound_" + lowerBound);
+        defaultIndicatorsMapper.put("higherBound", "higher_bound_" + higherBound);
         return defaultIndicatorsMapper;
     }
 
@@ -239,24 +240,24 @@ public class GatlingReporter {
         for (String key : keys) {
             Value member = parent.getMember(key);
             String myKey = key;
-            if(indicatorsMapper.containsKey(key)){
+            if (indicatorsMapper.containsKey(key)) {
                 myKey = indicatorsMapper.get(key);
             }
 
             String snakeCaseKey = fixPrometheusMetricName(statsName + "_" + fixPrometheusMetricName(convertCamelCaseToSnake(myKey)));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
-            Pair<Counter,Boolean> counter = buildCounter(prometheusRegistry, snakeCaseKey, "run","status");
+            Pair<Counter, Boolean> counter = buildCounter(prometheusRegistry, snakeCaseKey, "run", "status");
             counters.add(counter.getLeft());
-            setValue(counter.getLeft(),counter.getRight(), total, run,"all");
+            setValue(counter.getLeft(), counter.getRight(), total, run, "all");
             String ok = replaceDashByNull(member.getMember(OK).asString());
-            setValue(counter.getLeft(),counter.getRight(), ok, run,"ok");
+            setValue(counter.getLeft(), counter.getRight(), ok, run, "ok");
             String ko = replaceDashByNull(member.getMember(KO).asString());
-            setValue(counter.getLeft(),counter.getRight(), ko, run,"ko");
+            setValue(counter.getLeft(), counter.getRight(), ko, run, "ko");
         }
         return counters;
     }
 
-    protected void setValue(Counter counter, boolean convertMillisToSecondNeeded, String value, String... labelValues){
+    protected void setValue(Counter counter, boolean convertMillisToSecondNeeded, String value, String... labelValues) {
         if (value != null) {
             double amountAsDouble;
             if (convertMillisToSecondNeeded) {
@@ -267,22 +268,23 @@ public class GatlingReporter {
             counter.labelValues(labelValues).inc(amountAsDouble);
         }
     }
+
     protected String fixPrometheusMetricName(String metricName) {
-        Preconditions.checkNotNull(metricName,"metricName is null");
+        Preconditions.checkNotNull(metricName, "metricName is null");
         return metricName
                 .replaceAll("\\s", "_")
                 .replaceAll("-", "_")
                 .toLowerCase();
     }
 
-    protected Pair<Counter,Boolean> buildCounter(PrometheusRegistry prometheusRegistry,String snakeCaseKey,String... labelNames) {
-        Preconditions.checkNotNull(prometheusRegistry,"prometheusRegistry is null");
+    protected Pair<Counter, Boolean> buildCounter(PrometheusRegistry prometheusRegistry, String snakeCaseKey, String... labelNames) {
+        Preconditions.checkNotNull(prometheusRegistry, "prometheusRegistry is null");
         Counter.Builder builder = Counter.builder()
                 .name(snakeCaseKey)
                 .labelNames(labelNames);
         boolean convertMillisToSecondNeeded = false;
 
-        if(snakeCaseKey.contains("number_of_requests")){
+        if (snakeCaseKey.contains("number_of_requests")) {
             builder = builder.help("Number of requests for run ");
             //no unit
         } else if (snakeCaseKey.contains("mean_number_of_requests_per_second")) {
@@ -304,7 +306,10 @@ public class GatlingReporter {
             builder = builder.help("Standard deviation of response time for run ");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
-        } else if (snakeCaseKey.contains("percentiles")) {
+        } else if (snakeCaseKey.contains("p50") ||
+                snakeCaseKey.contains("p75") ||
+                snakeCaseKey.contains("p95") ||
+                snakeCaseKey.contains("p99")) {
             builder = builder.help("Percentiles of response time for run ");
             builder = builder.unit(Unit.SECONDS);
             convertMillisToSecondNeeded = true;
@@ -316,7 +321,7 @@ public class GatlingReporter {
     }
 
     public String convertCamelCaseToSnake(String metricName) {
-        Preconditions.checkNotNull(metricName,"metricName is null");
+        Preconditions.checkNotNull(metricName, "metricName is null");
         return metricName
                 .replaceAll("([A-Z])(?=[A-Z])", "$1_")
                 .replaceAll("([a-z])([A-Z])", "$1_$2")
@@ -324,18 +329,17 @@ public class GatlingReporter {
     }
 
 
-     Counter parseGroup(PrometheusRegistry prometheusRegistry, String parentName, String memberAsString, long counterValue) {
-        Preconditions.checkNotNull(prometheusRegistry,"prometheusRegistry is null");
-        Preconditions.checkNotNull(parentName,"parentName is null");
-        Preconditions.checkNotNull(memberAsString,"memberAsString is null");
-        String string = parentName+"_"+ memberAsString
-                .replaceAll("(\\d*) ms <= t < (\\d*) ms","t_between_$1_and_$2_ms_count")
-                .replaceAll("<= (\\d*) ms","lower_or_equal_than_$1_ms_count")
-                .replaceAll("< (\\d*) ms","lower_than_$1_ms_count")
-                .replaceAll(">= (\\d*) ms","higher_or_equal_than_$1_ms_count")
-                .replaceAll("> (\\d*) ms","higher_than_$1_ms_count")
-                .replaceAll("\\s","_")
-                ;
+    Counter parseGroup(PrometheusRegistry prometheusRegistry, String parentName, String memberAsString, long counterValue) {
+        Preconditions.checkNotNull(prometheusRegistry, "prometheusRegistry is null");
+        Preconditions.checkNotNull(parentName, "parentName is null");
+        Preconditions.checkNotNull(memberAsString, "memberAsString is null");
+        String string = parentName + "_" + memberAsString
+                .replaceAll("(\\d*) ms <= t < (\\d*) ms", "t_between_$1_and_$2_ms_count")
+                .replaceAll("<= (\\d*) ms", "lower_or_equal_than_$1_ms_count")
+                .replaceAll("< (\\d*) ms", "lower_than_$1_ms_count")
+                .replaceAll(">= (\\d*) ms", "higher_or_equal_than_$1_ms_count")
+                .replaceAll("> (\\d*) ms", "higher_than_$1_ms_count")
+                .replaceAll("\\s", "_");
         Counter counter = Counter.builder()
                 .name(string)
                 .register(prometheusRegistry);
@@ -343,7 +347,7 @@ public class GatlingReporter {
         return counter;
     }
 
-    List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent,String statsName) {
+    List<Counter> parseGroups(PrometheusRegistry prometheusRegistry, Value parent, String statsName) {
         List<Counter> groupCounters = Lists.newArrayList();
         List<String> list = parent.getMemberKeys().stream()
                 .filter(name -> name.startsWith("group"))
