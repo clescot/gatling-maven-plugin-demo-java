@@ -243,7 +243,7 @@ public class GatlingReporter {
                 myKey = indicatorsMapper.get(key);
             }
 
-            String snakeCaseKey = fixPrometheusMetricName(statsName + "_" + convertCamelCaseToSnake(fixPrometheusMetricName(myKey)));
+            String snakeCaseKey = fixPrometheusMetricName(statsName + "_" + fixPrometheusMetricName(convertCamelCaseToSnake(myKey)));
             String total = replaceDashByNull(member.getMember(TOTAL).asString());
             Pair<Counter,Boolean> counter = buildCounter(prometheusRegistry, snakeCaseKey, "run","status");
             counters.add(counter.getLeft());
